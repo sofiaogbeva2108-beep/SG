@@ -1,56 +1,21 @@
 // src/services/aiService.js
 
 async function callGeminiApi(prompt) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("Переменная VITE_GEMINI_API_KEY не задана!");
-  }
-
-  const cleanKey = apiKey.trim();
-
-  // Используем актуальный эндпоинт gemini-1.5-flash (или gemini-2.0-flash)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
-
-  const response = await fetch(url, {
+  const response = await fetch('/api/generate', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ]
-    })
+    body: JSON.stringify({ prompt }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    console.error("Ошибка от Google Gemini:", data);
-    
-    // Запасной путь через v1 вместо v1beta на случай региональных правил
-    const altUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
-    const altResponse = await fetch(altUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
-    });
-    
-    const altData = await altResponse.json();
-
-    if (altResponse.ok) {
-      return altData.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ.';
-    }
-
-    throw new Error(data.error?.message || altData.error?.message || `Ошибка ${response.status}`);
+    throw new Error(data.error || `Ошибка сервера: ${response.status}`);
   }
 
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ от модели.';
+  return data.text;
 }
 
 export const runAiBetaReader = async (currentScene, currentCycle) => {
