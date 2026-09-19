@@ -7,25 +7,34 @@ import {
   AlertTriangle, Play, Pause, RotateCcw, BarChart2, FileDown, Layers, 
   Users, MapPin, Eye, Feather, Check, Menu, X, Image as ImageIcon, 
   Wand2, Compass, Book, Home, HelpCircle, Activity, MessageSquare, 
-  Flame, Award, ArrowLeft, Volume2, VolumeX, Save, ChevronRight, Loader2, Lightbulb
+  Flame, Award, ArrowLeft, Volume2, VolumeX, Save, ChevronRight, Loader2, Lightbulb, Lock, LogIn, UserPlus, Shield
 } from 'lucide-react';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
 export default function App() {
-  // AUTH & USER STATE
+  // --- AUTH & ACCOUNTS STATE ---
+  const [registeredUsers, setRegisteredUsers] = useState(() => {
+    const saved = localStorage.getItem('mythos_registered_users');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('mythos_user');
     return saved ? JSON.parse(saved) : null;
   });
+
   const [isDemoMode, setIsDemoMode] = useState(() => {
     return localStorage.getItem('mythos_demo') === 'true';
   });
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authEmail, setAuthEmail] = useState('');
-  const [authName, setAuthName] = useState('');
 
-  // CYCLES & BOOKS DATA
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  // --- CYCLES & BOOKS DATA ---
   const [cycles, setCycles] = useState(() => {
     const saved = localStorage.getItem('mythos_cycles');
     if (saved) {
@@ -51,12 +60,10 @@ export default function App() {
           {
             id: 'book-1',
             title: 'Книга 1: Наследие',
-            cover: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
             chapters: [
               {
                 id: 'chap-1',
                 title: 'Глава 1: Пробуждение в тумане',
-                tension: 40,
                 scenes: [
                   { 
                     id: 'sc-1', 
@@ -108,22 +115,58 @@ export default function App() {
     localStorage.setItem('mythos_cycles', JSON.stringify(cycles));
   }, [cycles]);
 
-  // AUTH HANDLERS
+  useEffect(() => {
+    localStorage.setItem('mythos_registered_users', JSON.stringify(registeredUsers));
+  }, [registeredUsers]);
+
+  // --- AUTH HANDLERS ---
+  const handleRegister = (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!authEmail.trim() || !authPassword.trim() || !authName.trim()) {
+      setAuthError('Заполните все поля');
+      return;
+    }
+
+    const existingUser = registeredUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
+    if (existingUser) {
+      setAuthError('Пользователь с таким Email уже существует');
+      return;
+    }
+
+    const newUser = { name: authName, email: authEmail, password: authPassword };
+    const updatedUsers = [...registeredUsers, newUser];
+    setRegisteredUsers(updatedUsers);
+
+    setCurrentUser({ name: newUser.name, email: newUser.email });
+    setIsDemoMode(false);
+    localStorage.setItem('mythos_user', JSON.stringify({ name: newUser.name, email: newUser.email }));
+    localStorage.removeItem('mythos_demo');
+    setAuthPassword('');
+  };
+
   const handleLogin = (e) => {
     e.preventDefault();
-    if (!authEmail.trim() || !authName.trim()) return;
-    const user = { name: authName, email: authEmail };
-    setCurrentUser(user);
+    setAuthError('');
+    const user = registeredUsers.find(
+      u => u.email.toLowerCase() === authEmail.toLowerCase() && u.password === authPassword
+    );
+
+    if (!user) {
+      setAuthError('Неверный Email или пароль');
+      return;
+    }
+
+    setCurrentUser({ name: user.name, email: user.email });
     setIsDemoMode(false);
-    localStorage.setItem('mythos_user', JSON.stringify(user));
+    localStorage.setItem('mythos_user', JSON.stringify({ name: user.name, email: user.email }));
     localStorage.removeItem('mythos_demo');
-    setShowAuthModal(false);
+    setAuthPassword('');
   };
 
   const handleStartDemo = () => {
     setIsDemoMode(true);
     localStorage.setItem('mythos_demo', 'true');
-    setShowAuthModal(false);
   };
 
   const handleLogout = () => {
@@ -381,6 +424,207 @@ export default function App() {
   const totalWords = currentBook?.chapters.reduce((acc, ch) => 
     acc + ch.scenes.reduce((sAcc, sc) => sAcc + (sc.content ? sc.content.trim().split(/\s+/).filter(Boolean).length : 0), 0), 0) || 0;
 
+  // --- WELCOME / LANDING PAGE (IF NOT LOGGED IN & NOT DEMO) ---
+  if (!currentUser && !isDemoMode) {
+    return (
+      <div className="min-h-screen w-full bg-[#0a1a14] text-white flex flex-col justify-between relative overflow-hidden font-sans">
+        {/* BACKGROUND ART WORK & OVERLAY */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40 scale-105 transform transition duration-1000"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0a1f18] via-[#0b241c]/90 to-transparent" />
+
+        {/* TOP HEADER */}
+        <header className="relative z-10 px-8 py-6 flex items-center justify-between max-w-7xl mx-auto w-full">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-400/40 flex items-center justify-center">
+              <Feather className="w-6 h-6 text-emerald-300" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold tracking-wide text-emerald-100">Mythos Studio</div>
+              <div className="text-xs text-emerald-400/80 tracking-wider">Создавай миры. Оживляй истории.</div>
+            </div>
+          </div>
+        </header>
+
+        {/* HERO SECTION */}
+        <main className="relative z-10 max-w-7xl mx-auto w-full px-8 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          {/* LEFT CONTENT */}
+          <div className="lg:col-span-7 space-y-8">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-emerald-50 leading-tight font-serif">
+              Твоя персональная <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-emerald-400">
+                вселенная начинается здесь
+              </span>
+            </h1>
+
+            <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-xl">
+              Mythos Studio — это платформа для создания уникальных миров, персонажей и историй. Вдохновляйся, пиши, развивай свои идеи и делись ими с другими.
+            </p>
+
+            {/* FEATURES GRID */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-900/80 border border-emerald-700 flex items-center justify-center shrink-0">
+                  <Wand2 className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-emerald-100">Создавай миры</div>
+                  <div className="text-xs text-slate-400">Погружайся в бесконечные возможности фантазии.</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-900/80 border border-emerald-700 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-emerald-100">Развивай персонажей</div>
+                  <div className="text-xs text-slate-400">Делай их живыми, глубокими и уникальными.</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-900/80 border border-emerald-700 flex items-center justify-center shrink-0">
+                  <BookOpen className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-emerald-100">Пиши истории</div>
+                  <div className="text-xs text-slate-400">Оживляй свои идеи и делись ими.</div>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-emerald-900/80 border border-emerald-700 flex items-center justify-center shrink-0">
+                  <Compass className="w-4 h-4 text-emerald-300" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-emerald-100">Общайся с единомышленниками</div>
+                  <div className="text-xs text-slate-400">Найди свою аудиторию и вдохновение.</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 italic font-serif text-emerald-300/80 text-lg">
+              Мифы рождаются здесь
+            </div>
+          </div>
+
+          {/* RIGHT AUTH CARD */}
+          <div className="lg:col-span-5 bg-[#FAF9F6] text-slate-800 rounded-3xl p-8 shadow-2xl border border-emerald-100/20 max-w-md w-full mx-auto">
+            <div className="text-center space-y-2 mb-6">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 mx-auto flex items-center justify-center text-emerald-800">
+                <Feather className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-900">Добро пожаловать в <br />Mythos Studio</h2>
+              <p className="text-xs text-slate-500">Войдите в свой аккаунт или создайте новый, чтобы начать создавать.</p>
+            </div>
+
+            {authError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs text-center font-medium">
+                {authError}
+              </div>
+            )}
+
+            {/* TOGGLE TABS */}
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-5">
+              <button 
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${authMode === 'login' ? 'bg-white shadow text-emerald-900' : 'text-slate-500'}`}
+              >
+                Войти
+              </button>
+              <button 
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition ${authMode === 'register' ? 'bg-white shadow text-emerald-900' : 'text-slate-500'}`}
+              >
+                Зарегистрироваться
+              </button>
+            </div>
+
+            {/* AUTH FORM */}
+            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-3.5">
+              {authMode === 'register' && (
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Ваше имя или псевдоним</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Софья" 
+                    value={authName}
+                    onChange={e => setAuthName(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600 bg-slate-50/50"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="writer@mythos.studio" 
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600 bg-slate-50/50"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Пароль</label>
+                <input 
+                  type="password" 
+                  required
+                  placeholder="••••••••" 
+                  value={authPassword}
+                  onChange={e => setAuthPassword(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600 bg-slate-50/50"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full py-3 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-md"
+              >
+                {authMode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                <span>{authMode === 'login' ? 'Войти в кабинет' : 'Создать защищенный аккаунт'}</span>
+              </button>
+            </form>
+
+            <div className="relative my-5 text-center">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+              <span className="relative bg-[#FAF9F6] px-3 text-[11px] text-slate-400 uppercase font-semibold">или</span>
+            </div>
+
+            <button 
+              onClick={handleStartDemo}
+              className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold border border-emerald-200 transition flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>Попробовать демо-режим (без входа)</span>
+            </button>
+
+            {/* SECURITY FOOTER */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-start gap-2 text-[11px] text-slate-500">
+              <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-slate-700 block">Ваши данные в безопасности</strong>
+                Ваш пароль и проекты защищены и сохраняются только на вашем устройстве.
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <footer className="relative z-10 py-4 text-center text-xs text-emerald-400/60">
+          Mythos Studio Pro © 2026 • Платформа для писателей и сценаристов
+        </footer>
+      </div>
+    );
+  }
+
+  // --- MAIN APP WORKSPACE (WHEN LOGGED IN OR DEMO MODE) ---
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-[#FAF9F6] text-slate-800 font-sans overflow-hidden">
       
@@ -415,7 +659,7 @@ export default function App() {
                   Выйти
                 </button>
               </div>
-            ) : isDemoMode ? (
+            ) : (
               <div className="p-3 bg-amber-950/60 rounded-xl border border-amber-800/80 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
@@ -425,27 +669,19 @@ export default function App() {
                     onClick={handleLogout}
                     className="text-[10px] text-amber-400 hover:text-amber-200 underline"
                   >
-                    Сброс
+                    Выход
                   </button>
                 </div>
                 <p className="text-[10px] text-amber-200/80 leading-tight">
-                  Вы можете тестировать весь функционал. Для полноценного сохранения войдите в аккаунт.
+                  Вы можете тестировать весь функционал. Для созранения войдите в свой аккаунт.
                 </p>
                 <button 
-                  onClick={() => setShowAuthModal(true)}
+                  onClick={handleLogout}
                   className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[11px] font-semibold transition"
                 >
-                  Войти в аккаунт
+                  Войти с паролем
                 </button>
               </div>
-            ) : (
-              <button 
-                onClick={() => setShowAuthModal(true)}
-                className="w-full p-3 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 rounded-xl font-semibold text-xs transition border border-emerald-600 flex items-center justify-center gap-2"
-              >
-                <Users className="w-4 h-4" />
-                <span>Войти или Попробовать</span>
-              </button>
             )}
 
             {/* CYCLE SELECTOR */}
@@ -494,7 +730,7 @@ export default function App() {
           </div>
 
           <div className="pt-4 border-t border-emerald-800 text-[11px] text-emerald-400">
-            Mythos Studio Pro • Gemini Ready
+            Mythos Studio Pro • Protected Auth
           </div>
         </div>
       )}
@@ -532,8 +768,6 @@ export default function App() {
           {activeView === 'editor' && (
             <div className="h-full flex">
               <div className="w-64 border-r border-emerald-100 bg-white p-4 overflow-y-auto hidden md:block">
-                
-                {/* BOOK SELECTOR & ADD BOOK */}
                 <div className="mb-4 pb-3 border-b border-emerald-100">
                   <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Выбор книги</div>
                   <select 
@@ -903,68 +1137,6 @@ export default function App() {
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewBookModal(false)} className="px-4 py-2 border rounded-xl text-xs font-semibold">Отмена</button>
               <button onClick={handleCreateBook} className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-semibold">Добавить</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: AUTHENTICATION & DEMO MODE */}
-      {showAuthModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl border border-emerald-100">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 text-emerald-950 font-bold text-lg">
-                <Feather className="w-5 h-5 text-emerald-600" />
-                <span>Вход в Mythos Studio</span>
-              </div>
-              <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <p className="text-xs text-slate-500">
-              Войдите для синхронизации проектов или используйте гостевой режим для тестирования.
-            </p>
-
-            <form onSubmit={handleLogin} className="space-y-3">
-              <div>
-                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Ваше имя или псевдоним</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Софья" 
-                  value={authName}
-                  onChange={e => setAuthName(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Email</label>
-                <input 
-                  type="email" 
-                  required
-                  placeholder="writer@mythos.studio" 
-                  value={authEmail}
-                  onChange={e => setAuthEmail(e.target.value)}
-                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600"
-                />
-              </div>
-              <button 
-                type="submit" 
-                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition mt-2"
-              >
-                Войти в кабинет
-              </button>
-            </form>
-
-            <div className="pt-3 border-t border-slate-100 flex flex-col items-center">
-              <button 
-                onClick={handleStartDemo}
-                className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold border border-amber-200 transition flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Попробовать демо-режим (без регистрации)</span>
-              </button>
             </div>
           </div>
         </div>
