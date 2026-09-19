@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Feather, Flame, Sparkles, Home, BookOpen, Users, 
-  Activity, MessageSquare, Lightbulb, Eye, User 
+  Activity, MessageSquare, Lightbulb, Eye 
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -23,7 +23,6 @@ export default function Sidebar({
 
   const navItems = [
     { id: 'dashboard', label: 'Главная панель', icon: Home },
-    { id: 'profile', label: 'Личный Кабинет', icon: User }, // <--- НОВЫЙ ПУНКТ
     { id: 'editor', label: 'Кабинет Писателя', icon: BookOpen },
     { id: 'lore', label: 'База Лор & Мир', icon: Users },
     { id: 'analytics', label: 'Рентген & Аналитика', icon: Activity },
@@ -40,14 +39,19 @@ export default function Sidebar({
           <span>Mythos Studio</span>
         </div>
 
-        {/* USER PROFILE CARD */}
+        {/* ПЛАШКА ПРОФИЛЯ — КЛИК ПО НЕЙ ОТКРЫВАЕТ ЛИЧНЫЙ КАБИНЕТ */}
         {currentUser ? (
           <div 
             onClick={() => setActiveView('profile')} 
-            className="p-3 bg-emerald-900/60 hover:bg-emerald-900/90 rounded-xl border border-emerald-800 flex items-center justify-between cursor-pointer transition"
+            title="Перейти в Личный Кабинет"
+            className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+              activeView === 'profile' 
+                ? 'bg-emerald-800 border-emerald-500 ring-2 ring-emerald-400/30' 
+                : 'bg-emerald-900/60 hover:bg-emerald-900/90 border-emerald-800'
+            }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-emerald-100 border border-emerald-500 uppercase">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-emerald-100 border border-emerald-500 uppercase shrink-0">
                 {currentUser.name.slice(0, 2)}
               </div>
               <div className="overflow-hidden">
@@ -60,7 +64,7 @@ export default function Sidebar({
             </div>
             <button 
               onClick={(e) => { e.stopPropagation(); handleLogout(); }} 
-              className="text-[10px] text-emerald-400 hover:text-white underline ml-2"
+              className="text-[10px] text-emerald-400 hover:text-white underline ml-2 shrink-0"
             >
               Выйти
             </button>
@@ -107,13 +111,15 @@ export default function Sidebar({
           </select>
         </div>
 
-        {/* NAVIGATION */}
+        {/* НАВИГАЦИЯ (без дублирования личного кабинета) */}
         <div className="space-y-1">
           {navItems.map(item => (
             <button
               key={item.id}
               onClick={() => { setActiveView(item.id); setAiResponse(''); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${activeView === item.id ? 'bg-emerald-800 text-white' : 'hover:bg-emerald-900/50 text-emerald-300'}`}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${
+                activeView === item.id ? 'bg-emerald-800 text-white' : 'hover:bg-emerald-900/50 text-emerald-300'
+              }`}
             >
               <item.icon className="w-4 h-4 text-emerald-400" />
               <span>{item.label}</span>
