@@ -1,7 +1,6 @@
 // api/generate.js
 
 export default async function handler(req, res) {
-  // Разрешаем CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -23,21 +22,42 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'API key is missing in Vercel settings' });
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const cleanKey = apiKey.trim();
+
+    // Запрос к OpenRouter с точным названием модели
+    let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Authorization': `Bearer ${cleanKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://sg-jet.vercel.app',
         'X-Title': 'Mythos Studio',
       },
       body: JSON.stringify({
-        model: 'google/gemini-flash-1.5',
+        model: 'google/gemini-1.5-flash',
         messages: [{ role: 'user', content: prompt || 'Привет' }],
       }),
     });
 
-    const data = await response.json();
+    let data = await response.json();
+
+    // Резервный вызов на случай другого ID модели в OpenRouter
+    if (!response.ok && data.error?.code === 404) {
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${cleanKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://sg-jet.vercel.app',
+          'X-Title': 'Mythos Studio',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.0-flash-001',
+          messages: [{ role: 'user', content: prompt || 'Привет' }],
+        }),
+      });
+      data = await response.json();
+    }
 
     if (!response.ok) {
       return res.status(response.status).json({
