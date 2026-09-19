@@ -5,15 +5,25 @@ if (!API_KEY) {
   console.error("❌ VITE_GEMINI_API_KEY не найден!");
 }
 
-// Прямой вызов Gemini REST API без библиотеки
 async function callGeminiApi(prompt) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  // Определяем тип ключа (OAuth token или API Key)
+  const isOAuthToken = API_KEY && API_KEY.startsWith('AQ.');
   
+  const url = isOAuthToken 
+    ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
+    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+
+  if (isOAuthToken) {
+    headers['Authorization'] = `Bearer ${API_KEY}`;
+  }
+
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: headers,
     body: JSON.stringify({
       contents: [
         {
@@ -24,9 +34,9 @@ async function callGeminiApi(prompt) {
   });
 
   if (!response.ok) {
-    const errorData = await response.json();
-    console.error("Ошибка сети/API:", errorData);
-    throw new Error(errorData.error?.message || `Ошибка сервера: ${response.status}`);
+    const errorData = await response.json().catch(() => ({}));
+    console.error("Детали ошибки API:", errorData);
+    throw new Error(errorData.error?.message || `Ошибка API (Статус: ${response.status})`);
   }
 
   const data = await response.json();
