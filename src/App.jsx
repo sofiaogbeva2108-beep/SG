@@ -6,6 +6,7 @@ import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LandingView from './components/views/LandingView';
 import DashboardView from './components/views/DashboardView';
+import ProfileView from './components/views/ProfileView'; // <--- Подключили Личный кабинет
 import EditorView from './components/views/EditorView';
 import LoreView from './components/views/LoreView';
 import AnalyticsView from './components/views/AnalyticsView';
@@ -468,6 +469,14 @@ export default function App() {
               setActiveCycleId={setActiveCycleId}
               setActiveBookId={setActiveBookId}
               setActiveView={setActiveView}
+            />
+          )}
+
+          {activeView === 'profile' && (
+            <ProfileView 
+              currentUser={currentUser}
+              cycles={cycles}
+              streakDays={streakDays}
             />
           )}
 
