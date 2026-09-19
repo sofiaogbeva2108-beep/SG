@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 
 // LAYOUT & VIEWS
@@ -19,6 +20,45 @@ import CreateBookModal from './components/modals/CreateBookModal';
 // SERVICES
 import { runAiBetaReader, runCharacterSim, runBrainstorm } from './services/aiService';
 import { exportToDocx } from './services/docxExport';
+
+// Демонстрационный шаблон (только для Демо-режима)
+const DEMO_CYCLES = [
+  {
+    id: 'cycle-1',
+    title: 'Хроники Сумеречного Цвета',
+    description: '«История, которая ещё не рассказана.»',
+    lore: {
+      characters: [
+        { id: 'c-1', name: 'Элара', role: 'Главная героиня', bio: 'Владеет редкой магией света. Ищет тайны своего происхождения.' },
+        { id: 'c-2', name: 'Каин', role: 'Защитник / Спутник', bio: 'Бывший страж. Храбрый, но скрытный.' },
+        { id: 'c-3', name: 'Лорд Вудс', role: 'Антагонист', bio: 'Правитель северных земель, охотящийся за древними артефактами.' }
+      ],
+      locations: [
+        { id: 'l-1', name: 'Сумеречный лес', description: 'Старинное укрепление и мистические чащи.' },
+        { id: 'l-2', name: 'Долина Света', description: 'Неприступная цитадель в северной долине.' }
+      ]
+    },
+    books: [
+      {
+        id: 'book-1',
+        title: 'Книга 1: Наследие',
+        chapters: [
+          {
+            id: 'chap-1',
+            title: 'Глава 1: Пробуждение в тумане',
+            scenes: [
+              { 
+                id: 'sc-1', 
+                title: 'Сцена 1: Заброшенная башня', 
+                content: 'Холодный ветер проникал сквозь узкие бойницы башни, заставляя Элару сильнее сжаться в плащ. Каин молча стоял у края площадки, устремив взгляд в заснеженную долину.' 
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+];
 
 export default function App() {
   // --- AUTH & ACCOUNTS STATE ---
@@ -42,55 +82,20 @@ export default function App() {
   const [authName, setAuthName] = useState('');
   const [authError, setAuthError] = useState('');
 
-  // --- CYCLES & BOOKS DATA ---
+  // --- CYCLES DATA STATE (Привязано лично к пользователю) ---
   const [cycles, setCycles] = useState(() => {
-    const saved = localStorage.getItem('mythos_cycles');
-    if (saved) {
-      try { return JSON.parse(saved); } catch(e) {}
+    if (isDemoMode) return DEMO_CYCLES;
+    if (currentUser?.email) {
+      const userSaved = localStorage.getItem(`mythos_cycles_${currentUser.email.toLowerCase()}`);
+      return userSaved ? JSON.parse(userSaved) : [];
     }
-    return [
-      {
-        id: 'cycle-1',
-        title: 'Хроники Сумеречного Цвета',
-        description: 'Темное фэнтези о древней магии, зимних землях и тайнах происхождения.',
-        lore: {
-          characters: [
-            { id: 'c-1', name: 'Элара', role: 'Главная героиня', bio: 'Владеет редкой магией света. Ищет тайны своего происхождения.' },
-            { id: 'c-2', name: 'Каин', role: 'Защитник / Спутник', bio: 'Бывший страж. Храбрый, но скрытный.' },
-            { id: 'c-3', name: 'Лорд Вудс', role: 'Антагонист', bio: 'Правитель северных земель, охотящийся за древними артефактами.' }
-          ],
-          locations: [
-            { id: 'l-1', name: 'Заброшенная башня', description: 'Старинное укрепление на вершине Драконьего пика.' },
-            { id: 'l-2', name: 'Замок Вудса', description: 'Неприступная цитадель в северной долине.' }
-          ]
-        },
-        books: [
-          {
-            id: 'book-1',
-            title: 'Книга 1: Наследие',
-            chapters: [
-              {
-                id: 'chap-1',
-                title: 'Глава 1: Пробуждение в тумане',
-                scenes: [
-                  { 
-                    id: 'sc-1', 
-                    title: 'Сцена 1: Заброшенная башня', 
-                    content: 'Холодный ветер проникал сквозь узкие бойницы башни, заставляя Элару сильнее сжаться в плащ. Каин молча стоял у края площадки, устремив взгляд в заснеженную долину. На горизонте возвышались очертания замка Лорда Вудса.\n\n— Нам нельзя здесь оставаться, — тихо произнесла Элара. — Если темные стражи обнаружат следы магии, мы не успеем добраться до перевала.' 
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
+    return [];
   });
 
-  const [activeView, setActiveView] = useState('editor');
-  const [activeCycleId, setActiveCycleId] = useState('cycle-1');
-  const [activeBookId, setActiveBookId] = useState('book-1');
-  const [activeSceneId, setActiveSceneId] = useState('sc-1');
+  const [activeView, setActiveView] = useState('dashboard');
+  const [activeCycleId, setActiveCycleId] = useState('');
+  const [activeBookId, setActiveBookId] = useState('');
+  const [activeSceneId, setActiveSceneId] = useState('');
   const [focusMode, setFocusMode] = useState(false);
 
   // RPG & AI STATE
@@ -98,7 +103,7 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
 
-  // MODALS & INPUTS FOR CREATION
+  // MODALS
   const [showNewCycleModal, setShowNewCycleModal] = useState(false);
   const [newCycleTitle, setNewCycleTitle] = useState('');
   const [newCycleDesc, setNewCycleDesc] = useState('');
@@ -118,9 +123,29 @@ export default function App() {
   const [newLocName, setNewLocName] = useState('');
   const [newLocDesc, setNewLocDesc] = useState('');
 
+  // Переключение активного цикла при смене списка
   useEffect(() => {
-    localStorage.setItem('mythos_cycles', JSON.stringify(cycles));
+    if (cycles.length > 0) {
+      if (!cycles.find(c => c.id === activeCycleId)) {
+        setActiveCycleId(cycles[0].id);
+        if (cycles[0].books?.length > 0) {
+          setActiveBookId(cycles[0].books[0].id);
+          setActiveSceneId(cycles[0].books[0].chapters?.[0]?.scenes?.[0]?.id || '');
+        }
+      }
+    } else {
+      setActiveCycleId('');
+      setActiveBookId('');
+      setActiveSceneId('');
+    }
   }, [cycles]);
+
+  // АВТОСОХРАНЕНИЕ ДАННЫХ В ПЕРСОНАЛЬНОЕ ХРАНИЛИЩЕ ПОЛЬЗОВАТЕЛЯ
+  useEffect(() => {
+    if (currentUser?.email && !isDemoMode) {
+      localStorage.setItem(`mythos_cycles_${currentUser.email.toLowerCase()}`, JSON.stringify(cycles));
+    }
+  }, [cycles, currentUser, isDemoMode]);
 
   useEffect(() => {
     localStorage.setItem('mythos_registered_users', JSON.stringify(registeredUsers));
@@ -142,11 +167,14 @@ export default function App() {
     }
 
     const newUser = { name: authName, email: authEmail, password: authPassword };
-    const updatedUsers = [...registeredUsers, newUser];
-    setRegisteredUsers(updatedUsers);
+    setRegisteredUsers([...registeredUsers, newUser]);
 
     setCurrentUser({ name: newUser.name, email: newUser.email });
     setIsDemoMode(false);
+    
+    // Новые пользователи начинают с ЧИСТЫМ списком проектов
+    setCycles([]);
+    
     localStorage.setItem('mythos_user', JSON.stringify({ name: newUser.name, email: newUser.email }));
     localStorage.removeItem('mythos_demo');
     setAuthPassword('');
@@ -166,6 +194,11 @@ export default function App() {
 
     setCurrentUser({ name: user.name, email: user.email });
     setIsDemoMode(false);
+    
+    // Загружаем личные данные вошедшего пользователя
+    const userSaved = localStorage.getItem(`mythos_cycles_${user.email.toLowerCase()}`);
+    setCycles(userSaved ? JSON.parse(userSaved) : []);
+
     localStorage.setItem('mythos_user', JSON.stringify({ name: user.name, email: user.email }));
     localStorage.removeItem('mythos_demo');
     setAuthPassword('');
@@ -173,21 +206,23 @@ export default function App() {
 
   const handleStartDemo = () => {
     setIsDemoMode(true);
+    setCycles(DEMO_CYCLES);
     localStorage.setItem('mythos_demo', 'true');
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setIsDemoMode(false);
+    setCycles([]);
     localStorage.removeItem('mythos_user');
     localStorage.removeItem('mythos_demo');
   };
 
-  const currentCycle = cycles.find(c => c.id === activeCycleId) || cycles[0];
-  const currentBook = currentCycle?.books.find(b => b.id === activeBookId) || currentCycle?.books[0];
+  const currentCycle = cycles.find(c => c.id === activeCycleId) || cycles[0] || null;
+  const currentBook = currentCycle?.books?.find(b => b.id === activeBookId) || currentCycle?.books?.[0] || null;
 
   let currentScene = null;
-  currentBook?.chapters.forEach(ch => {
+  currentBook?.chapters?.forEach(ch => {
     const sc = ch.scenes.find(s => s.id === activeSceneId);
     if (sc) currentScene = sc;
   });
@@ -214,7 +249,8 @@ export default function App() {
         }
       ]
     };
-    setCycles([...cycles, newCycle]);
+    const updated = [...cycles, newCycle];
+    setCycles(updated);
     setActiveCycleId(newCycle.id);
     setActiveBookId(newCycle.books[0].id);
     setActiveSceneId(newCycle.books[0].chapters[0].scenes[0].id);
@@ -247,14 +283,14 @@ export default function App() {
     if (!currentBook) return;
     const newChapter = {
       id: 'chap-' + Date.now(),
-      title: `Глава ${currentBook.chapters.length + 1}`,
+      title: `Глава ${(currentBook.chapters?.length || 0) + 1}`,
       scenes: [{ id: 'sc-' + Date.now(), title: 'Сцена 1', content: '' }]
     };
     setCycles(prev => prev.map(cyc => cyc.id === activeCycleId ? {
       ...cyc,
       books: cyc.books.map(bk => bk.id === activeBookId ? {
         ...bk,
-        chapters: [...bk.chapters, newChapter]
+        chapters: [...(bk.chapters || []), newChapter]
       } : bk)
     } : cyc));
     setActiveSceneId(newChapter.scenes[0].id);
@@ -300,14 +336,14 @@ export default function App() {
   };
 
   const addCharacter = () => {
-    if (!newCharName.trim()) return;
+    if (!newCharName.trim() || !activeCycleId) return;
     setCycles(prev => prev.map(c => {
       if (c.id !== activeCycleId) return c;
       return {
         ...c,
         lore: {
           ...c.lore,
-          characters: [...c.lore.characters, { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }]
+          characters: [...(c.lore?.characters || []), { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }]
         }
       };
     }));
@@ -316,14 +352,14 @@ export default function App() {
   };
 
   const addLocation = () => {
-    if (!newLocName.trim()) return;
+    if (!newLocName.trim() || !activeCycleId) return;
     setCycles(prev => prev.map(c => {
       if (c.id !== activeCycleId) return c;
       return {
         ...c,
         lore: {
           ...c.lore,
-          locations: [...c.lore.locations, { id: 'l-' + Date.now(), name: newLocName, description: newLocDesc }]
+          locations: [...(c.lore?.locations || []), { id: 'l-' + Date.now(), name: newLocName, description: newLocDesc }]
         }
       };
     }));
@@ -338,7 +374,7 @@ export default function App() {
       const res = await runAiBetaReader(currentScene, currentCycle);
       setAiResponse(res);
     } catch (e) {
-      setAiResponse('Ошибка ИИ. Проверьте правильность VITE_GEMINI_API_KEY.');
+      setAiResponse('Ошибка обращения к ИИ.');
     } finally {
       setAiLoading(false);
     }
@@ -350,7 +386,7 @@ export default function App() {
       const res = await runCharacterSim(simChar1, simChar2, simConflict, currentCycle);
       setAiResponse(res);
     } catch (e) {
-      setAiResponse('Ошибка при моделировании симулятора.');
+      setAiResponse('Ошибка при моделировании.');
     } finally {
       setAiLoading(false);
     }
@@ -368,7 +404,7 @@ export default function App() {
     }
   };
 
-  const totalWords = currentBook?.chapters.reduce((acc, ch) => 
+  const totalWords = currentBook?.chapters?.reduce((acc, ch) => 
     acc + ch.scenes.reduce((sAcc, sc) => sAcc + (sc.content ? sc.content.trim().split(/\s+/).filter(Boolean).length : 0), 0), 0) || 0;
 
   // --- LANDING PAGE ---
@@ -419,12 +455,15 @@ export default function App() {
           setFocusMode={setFocusMode}
           totalWords={totalWords}
           exportToDocx={() => exportToDocx(currentBook, currentCycle)}
+          currentUser={currentUser}
         />
 
         <div className="flex-1 overflow-hidden relative">
           {activeView === 'dashboard' && (
             <DashboardView 
               cycles={cycles}
+              currentCycle={currentCycle}
+              currentUser={currentUser}
               setShowNewCycleModal={setShowNewCycleModal}
               setActiveCycleId={setActiveCycleId}
               setActiveBookId={setActiveBookId}
@@ -446,6 +485,7 @@ export default function App() {
               setCycles={setCycles}
               activeCycleId={activeCycleId}
               updateSceneContent={updateSceneContent}
+              setShowNewCycleModal={setShowNewCycleModal}
             />
           )}
 
