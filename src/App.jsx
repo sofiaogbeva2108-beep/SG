@@ -7,14 +7,12 @@ import {
   AlertTriangle, Play, Pause, RotateCcw, BarChart2, FileDown, Layers, 
   Users, MapPin, Eye, Feather, Check, Menu, X, Image as ImageIcon, 
   Wand2, Compass, Book, Home, HelpCircle, Activity, MessageSquare, 
-  Flame, Award, ArrowLeft, Volume2, VolumeX, Save, ChevronRight, Loader2
+  Flame, Award, ArrowLeft, Volume2, VolumeX, Save, ChevronRight, Loader2, Lightbulb
 } from 'lucide-react';
 
-// Инициализация Gemini API
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
 export default function App() {
-  // --- STATE: CYCLES & BOOKS ---
   const [cycles, setCycles] = useState(() => {
     const saved = localStorage.getItem('mythos_cycles');
     if (saved) {
@@ -61,13 +59,11 @@ export default function App() {
     ];
   });
 
-  // NAVIGATION & UI
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState('editor');
   const [activeCycleId, setActiveCycleId] = useState('cycle-1');
   const [activeBookId, setActiveBookId] = useState('book-1');
   const [activeSceneId, setActiveSceneId] = useState('sc-1');
   const [focusMode, setFocusMode] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // RPG & AI STATE
   const [writerLevel] = useState(3);
@@ -75,9 +71,17 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
 
-  // LAB & SIMULATOR
+  // LAB & GENERATORS STATE
   const [simChar1, setSimChar1] = useState('Элара');
   const [simChar2, setSimChar2] = useState('Каин');
+  const [simConflict, setSimConflict] = useState('Тайна из прошлого');
+  const [genCategory, setGenCategory] = useState('names');
+
+  // LORE INPUTS
+  const [newCharName, setNewCharName] = useState('');
+  const [newCharBio, setNewCharBio] = useState('');
+  const [newLocName, setNewLocName] = useState('');
+  const [newLocDesc, setNewLocDesc] = useState('');
 
   useEffect(() => {
     localStorage.setItem('mythos_cycles', JSON.stringify(cycles));
@@ -112,13 +116,45 @@ export default function App() {
     }));
   };
 
-  // --- GEMINI AI CALLS ---
+  const addCharacter = () => {
+    if (!newCharName.trim()) return;
+    setCycles(prev => prev.map(c => {
+      if (c.id !== activeCycleId) return c;
+      return {
+        ...c,
+        lore: {
+          ...c.lore,
+          characters: [...c.lore.characters, { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }]
+        }
+      };
+    }));
+    setNewCharName('');
+    setNewCharBio('');
+  };
+
+  const addLocation = () => {
+    if (!newLocName.trim()) return;
+    setCycles(prev => prev.map(c => {
+      if (c.id !== activeCycleId) return c;
+      return {
+        ...c,
+        lore: {
+          ...c.lore,
+          locations: [...c.lore.locations, { id: 'l-' + Date.now(), name: newLocName, description: newLocDesc }]
+        }
+      };
+    }));
+    setNewLocName('');
+    setNewLocDesc('');
+  };
+
+  // --- AI FUNCTIONS ---
   const runAiBetaReader = async () => {
     if (!currentScene?.content) return;
     setAiLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Проведи анализ литературного отрывка как строгого бета-ридера и литературного редактора.
+      const prompt = `Проведи детальный анализ литературного отрывка как бета-ридер и стилист.
         
 Контекст мира: ${currentCycle.description}
 Персонажи: ${currentCycle.lore.characters.map(c => c.name + ': ' + c.bio).join('; ')}
@@ -126,17 +162,17 @@ export default function App() {
 Текст сцены:
 "${currentScene.content}"
 
-Выдай ответ по структуре:
-🟢 Сильные стороны: (1-2 пункта)
-🟡 Что провисает/скучно: (1-2 пункта)
-🔴 Детектор ООС (выход из характера) и логические дыры: (краткий анализ)`;
+Структура ответа:
+🟢 **Сильные стороны:**
+🟡 **Ритм и темп сцены:**
+🔴 **Замечания к стилю, повторам и ООС (выходу из характера):**`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
       setAiResponse(response.text());
     } catch (e) {
       console.error(e);
-      setAiResponse('Ошибка запроса к ИИ. Убедитесь, что правильно настроена переменная VITE_GEMINI_API_KEY.');
+      setAiResponse('Ошибка ИИ. Проверьте правильность VITE_GEMINI_API_KEY.');
     } finally {
       setAiLoading(false);
     }
@@ -146,12 +182,13 @@ export default function App() {
     setAiLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const prompt = `Смоделируй короткую напряженную сцену диалога между двумя персонажами для фэнтези книги.
+      const prompt = `Смоделируй диалог-столкновение двух персонажей фэнтези.
 Персонаж 1: ${simChar1}
 Персонаж 2: ${simChar2}
+Причина конфликта: ${simConflict}
 Мир: ${currentCycle.description}
 
-Напиши их диалог на основе характеров и добавь вердикт ИИ о химии персонажей.`;
+Напиши напряженный диалог с описанием эмоций и жестов, а в конце дай вердикт ИИ о химии персонажей.`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -164,7 +201,27 @@ export default function App() {
     }
   };
 
-  // --- EXPORT TO DOCX ---
+  const runBrainstorm = async () => {
+    setAiLoading(true);
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      let prompt = `Сгенерируй 5 креативных идей для фэнтези мира "${currentCycle.title}". Описание мира: ${currentCycle.description}. `;
+      
+      if (genCategory === 'names') prompt += 'Предложи 10 атмосферных имён персонажей и названий древних родов с краткой характеристикой.';
+      if (genCategory === 'twists') prompt += 'Предложи 5 неожиданных сюжетных поворотов (Plot Twists) для текущей сюжетной арки.';
+      if (genCategory === 'locations') prompt += 'Предложи 5 уникальных волшебных или мрачных локаций с их секретами.';
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      setAiResponse(response.text());
+    } catch (e) {
+      console.error(e);
+      setAiResponse('Ошибка генерации идей.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   const exportToDocx = () => {
     const docChildren = [
       new Paragraph({ text: currentBook.title, heading: HeadingLevel.TITLE }),
@@ -194,7 +251,7 @@ export default function App() {
     <div className="flex flex-col md:flex-row h-screen w-full bg-[#FAF9F6] text-slate-800 font-sans overflow-hidden">
       
       {/* SIDEBAR */}
-      {(!focusMode || mobileMenuOpen) && (
+      {!focusMode && (
         <div className="w-full md:w-64 bg-emerald-950 text-emerald-50 flex flex-col justify-between border-r border-emerald-800 p-4">
           <div className="space-y-6">
             <div className="flex items-center gap-2 font-bold text-xl text-emerald-200">
@@ -217,16 +274,17 @@ export default function App() {
 
             <div className="space-y-1">
               {[
-                { id: 'dashboard', label: 'Главная (Циклы)', icon: Home },
+                { id: 'dashboard', label: 'Мои Циклы', icon: Home },
                 { id: 'editor', label: 'Кабинет Писателя', icon: BookOpen },
-                { id: 'reader', label: 'Читалка', icon: Eye },
+                { id: 'lore', label: 'База Лор & Мир', icon: Users },
                 { id: 'analytics', label: 'Рентген & Аналитика', icon: Activity },
                 { id: 'lab', label: 'Комната испытаний', icon: MessageSquare },
-                { id: 'help', label: 'Обучение', icon: HelpCircle }
+                { id: 'brainstorm', label: 'Генератор & Идеи', icon: Lightbulb },
+                { id: 'reader', label: 'Режим Чтения', icon: Eye }
               ].map(item => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveView(item.id)}
+                  onClick={() => { setActiveView(item.id); setAiResponse(''); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition ${activeView === item.id ? 'bg-emerald-800 text-white' : 'hover:bg-emerald-900/50 text-emerald-300'}`}
                 >
                   <item.icon className="w-4 h-4 text-emerald-400" />
@@ -252,7 +310,7 @@ export default function App() {
               className="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-emerald-200"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>{focusMode ? 'Выйти из фокуса' : 'Фокус'}</span>
+              <span>{focusMode ? 'Выйти из фокуса' : 'Режим Фокуса'}</span>
             </button>
           </div>
 
@@ -323,10 +381,92 @@ export default function App() {
             </div>
           )}
 
+          {/* LORE BASE */}
+          {activeView === 'lore' && (
+            <div className="h-full p-8 overflow-y-auto max-w-4xl mx-auto space-y-8">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 mb-2">База Лора и Мироустройства</h1>
+                <p className="text-xs text-slate-500">Управляйте персонажами и локациями мира "{currentCycle.title}"</p>
+              </div>
+
+              {/* CHARACTERS */}
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-emerald-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-emerald-600" /> Персонажи
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {currentCycle.lore.characters.map(c => (
+                    <div key={c.id} className="p-4 bg-white rounded-xl border border-emerald-100 shadow-sm">
+                      <div className="font-bold text-sm text-slate-800">{c.name}</div>
+                      <div className="text-xs text-emerald-700 font-semibold mb-1">{c.role}</div>
+                      <div className="text-xs text-slate-600">{c.bio}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-2">
+                  <div className="text-xs font-bold text-emerald-900">Добавить персонажа</div>
+                  <input 
+                    type="text" 
+                    placeholder="Имя персонажа" 
+                    value={newCharName} 
+                    onChange={e => setNewCharName(e.target.value)} 
+                    className="w-full p-2 text-xs border rounded-lg" 
+                  />
+                  <textarea 
+                    placeholder="Краткое описание / роль" 
+                    value={newCharBio} 
+                    onChange={e => setNewCharBio(e.target.value)} 
+                    className="w-full p-2 text-xs border rounded-lg h-16 resize-none" 
+                  />
+                  <button onClick={addCharacter} className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-semibold">
+                    Сохранить персонажа
+                  </button>
+                </div>
+              </div>
+
+              {/* LOCATIONS */}
+              <div className="space-y-4 pt-4 border-t border-emerald-100">
+                <h2 className="text-lg font-bold text-emerald-900 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-emerald-600" /> Локации
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {currentCycle.lore.locations.map(l => (
+                    <div key={l.id} className="p-4 bg-white rounded-xl border border-emerald-100 shadow-sm">
+                      <div className="font-bold text-sm text-slate-800">{l.name}</div>
+                      <div className="text-xs text-slate-600 mt-1">{l.description}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-2">
+                  <div className="text-xs font-bold text-emerald-900">Добавить локацию</div>
+                  <input 
+                    type="text" 
+                    placeholder="Название локации" 
+                    value={newLocName} 
+                    onChange={e => setNewLocName(e.target.value)} 
+                    className="w-full p-2 text-xs border rounded-lg" 
+                  />
+                  <textarea 
+                    placeholder="Описание локации" 
+                    value={newLocDesc} 
+                    onChange={e => setNewLocDesc(e.target.value)} 
+                    className="w-full p-2 text-xs border rounded-lg h-16 resize-none" 
+                  />
+                  <button onClick={addLocation} className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-xs font-semibold">
+                    Сохранить локацию
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ANALYTICS & BETA READER */}
           {activeView === 'analytics' && (
             <div className="h-full p-6 overflow-y-auto max-w-4xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold text-slate-900">ИИ Бета-ридер & Рентген сюжета</h1>
+              <h1 className="text-xl font-bold text-slate-900">ИИ Бета-ридер & Стилистический Рентген</h1>
+              <p className="text-xs text-slate-500">Глубокий анализ сцены: от детектора ошибок до ритмики текста.</p>
               
               <button 
                 onClick={runAiBetaReader}
@@ -334,7 +474,7 @@ export default function App() {
                 className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2"
               >
                 {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>Запустить ИИ-Анализ сцены</span>
+                <span>Запустить Анализ Текста</span>
               </button>
 
               {aiResponse && (
@@ -348,8 +488,8 @@ export default function App() {
           {/* LAB */}
           {activeView === 'lab' && (
             <div className="h-full p-6 overflow-y-auto max-w-3xl mx-auto space-y-6">
-              <h1 className="text-xl font-bold text-slate-900">Симулятор отношений персонажей</h1>
-              <div className="grid grid-cols-2 gap-4">
+              <h1 className="text-xl font-bold text-slate-900">Симулятор отношений & Химия персонажей</h1>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <input 
                   type="text" 
                   value={simChar1} 
@@ -364,6 +504,13 @@ export default function App() {
                   className="p-2 border rounded-xl text-xs" 
                   placeholder="Персонаж 2" 
                 />
+                <input 
+                  type="text" 
+                  value={simConflict} 
+                  onChange={(e) => setSimConflict(e.target.value)} 
+                  className="p-2 border rounded-xl text-xs" 
+                  placeholder="Причина конфликта" 
+                />
               </div>
               <button 
                 onClick={runCharacterSim}
@@ -371,7 +518,45 @@ export default function App() {
                 className="w-full py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-semibold flex justify-center items-center gap-2"
               >
                 {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>Смоделировать столкновение</span>
+                <span>Смоделировать Диалог</span>
+              </button>
+
+              {aiResponse && (
+                <div className="p-5 bg-white rounded-2xl border border-emerald-100 text-xs leading-relaxed whitespace-pre-wrap">
+                  {aiResponse}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* BRAINSTORM */}
+          {activeView === 'brainstorm' && (
+            <div className="h-full p-6 overflow-y-auto max-w-3xl mx-auto space-y-6">
+              <h1 className="text-xl font-bold text-slate-900">Генератор идей & Брейншторм</h1>
+              
+              <div className="flex gap-2">
+                {[
+                  { id: 'names', label: 'Имена & Роды' },
+                  { id: 'twists', label: 'Сюжетные повороты' },
+                  { id: 'locations', label: 'Идеи Локаций' }
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setGenCategory(cat.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition ${genCategory === cat.id ? 'bg-emerald-700 text-white' : 'bg-white border text-slate-600'}`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={runBrainstorm}
+                disabled={aiLoading}
+                className="w-full py-2.5 bg-emerald-700 text-white rounded-xl text-xs font-semibold flex justify-center items-center gap-2"
+              >
+                {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                <span>Сгенерировать идеи</span>
               </button>
 
               {aiResponse && (
@@ -408,17 +593,6 @@ export default function App() {
                   ))}
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* HELP */}
-          {activeView === 'help' && (
-            <div className="h-full p-8 overflow-y-auto max-w-3xl mx-auto space-y-4">
-              <h1 className="text-xl font-bold">Инструкция по Mythos Studio</h1>
-              <div className="p-4 bg-white rounded-xl border border-emerald-100 text-xs leading-relaxed space-y-2">
-                <p>• <strong>Ключ Gemini:</strong> Добавьте ваш ключ в переменные окружения Vercel как VITE_GEMINI_API_KEY для активации ИИ-функций.</p>
-                <p>• <strong>Экспорт в DOCX:</strong> Кнопка вверху справа выгружает всю книгу со структурой глав в формат Word.</p>
-              </div>
             </div>
           )}
 
