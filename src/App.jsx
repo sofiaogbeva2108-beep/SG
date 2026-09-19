@@ -4,7 +4,7 @@ import {
   Sparkles, CheckCircle, AlertTriangle, Play, Pause, RotateCcw,
   BarChart2, FileDown, Layers, Users, MapPin, ShieldAlert,
   GitCommit, RefreshCw, Eye, Feather, HelpCircle, Save, Check,
-  Menu, X
+  Menu, X, Image as ImageIcon, Download, Wand2, Compass, Book
 } from 'lucide-react';
 
 export default function App() {
@@ -64,7 +64,7 @@ export default function App() {
   const [activeProjId, setActiveProjId] = useState('proj-1');
   const [activeBookId, setActiveBookId] = useState('book-1');
   const [activeSceneId, setActiveSceneId] = useState('sc-1');
-  const [activeTab, setActiveTab] = useState('editor'); // editor, lore, analytics
+  const [activeTab, setActiveTab] = useState('editor'); // editor, lore, analytics, gallery
   
   const [focusMode, setFocusMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -77,10 +77,41 @@ export default function App() {
   const [aiOutput, setAiOutput] = useState('');
   const [tautologyResults, setTautologyResults] = useState([]);
 
+  // --- GENERATOR STATE ---
+  const [genCategory, setGenCategory] = useState('character'); // character, location, map, cover
+  const [genPrompt, setGenPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedGallery, setGeneratedGallery] = useState(() => {
+    const saved = localStorage.getItem('storyhub_gallery');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return [
+      {
+        id: 'img-1',
+        type: 'cover',
+        title: 'Обложка «Наследие»',
+        prompt: 'Dark fantasy book cover, Legacy of the Twilight Flower, dark magical aesthetic, winter valley, high detailed fantasy art',
+        url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80'
+      },
+      {
+        id: 'img-2',
+        type: 'map',
+        title: 'Карта континента',
+        prompt: 'Fantasy continent map, kingdoms of Elendor and Veldarn, detailed coastline, mountains, vintage cartography style',
+        url: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80'
+      }
+    ];
+  });
+
   // Auto-save to localStorage
   useEffect(() => {
     localStorage.setItem('storyhub_projects', JSON.stringify(projects));
   }, [projects]);
+
+  useEffect(() => {
+    localStorage.setItem('storyhub_gallery', JSON.stringify(generatedGallery));
+  }, [generatedGallery]);
 
   // Pomodoro timer
   useEffect(() => {
@@ -123,7 +154,6 @@ export default function App() {
   };
 
   const wordCount = currentScene?.content ? currentScene.content.trim().split(/\s+/).filter(Boolean).length : 0;
-  const charCount = currentScene?.content ? currentScene.content.length : 0;
 
   const runCanonCheck = () => {
     setAiAnalyzing(true);
@@ -134,15 +164,38 @@ export default function App() {
     }, 1500);
   };
 
-  const runTautologyCheck = () => {
-    if (!currentScene?.content) return;
-    const words = currentScene.content.toLowerCase().match(/[а-яa-z]+/gi) || [];
-    const freq = {};
-    words.forEach(w => {
-      if (w.length > 3) freq[w] = (freq[w] || 0) + 1;
-    });
-    const repeated = Object.entries(freq).filter(([_, count]) => count > 2).sort((a,b) => b[1] - a[1]);
-    setTautologyResults(repeated);
+  const handleGenerateImage = () => {
+    if (!genPrompt.trim()) return;
+    setIsGenerating(true);
+
+    setTimeout(() => {
+      const categoryLabels = {
+        character: 'Персонаж',
+        location: 'Локация',
+        map: 'Карта',
+        cover: 'Обложка'
+      };
+
+      // Пул атмосферных изображений для демонстрации визуализации
+      const sampleImages = {
+        character: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=80',
+        location: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=80',
+        map: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=800&q=80',
+        cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=800&q=80'
+      };
+
+      const newArt = {
+        id: 'img-' + Date.now(),
+        type: genCategory,
+        title: `${categoryLabels[genCategory]}: ${genPrompt.slice(0, 20)}...`,
+        prompt: genPrompt,
+        url: sampleImages[genCategory]
+      };
+
+      setGeneratedGallery(prev => [newArt, ...prev]);
+      setIsGenerating(false);
+      setGenPrompt('');
+    }, 2000);
   };
 
   const formatTime = (seconds) => {
@@ -216,11 +269,19 @@ export default function App() {
               </button>
 
               <button 
+                onClick={() => { setActiveTab('gallery'); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'gallery' ? 'bg-emerald-800 text-white' : 'hover:bg-emerald-900/50 text-emerald-200'}`}
+              >
+                <ImageIcon className="w-4 h-4 text-emerald-400" />
+                <span>ИИ-Арт & Артбук</span>
+              </button>
+
+              <button 
                 onClick={() => { setActiveTab('analytics'); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition ${activeTab === 'analytics' ? 'bg-emerald-800 text-white' : 'hover:bg-emerald-900/50 text-emerald-200'}`}
               >
                 <BarChart2 className="w-4 h-4 text-emerald-400" />
-                <span>Аналитика & Повторы</span>
+                <span>Аналитика текста</span>
               </button>
             </div>
 
@@ -324,6 +385,99 @@ export default function App() {
             </div>
           )}
 
+          {/* GALLERY / AI ART TAB */}
+          {activeTab === 'gallery' && (
+            <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#FAF9F6]">
+              <div className="max-w-4xl mx-auto space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">ИИ-Визуализация & Артбук</h2>
+                  <p className="text-xs text-slate-500 mt-1">Генерируйте изображения персонажей, местности, карт и обложек для вашей книги.</p>
+                </div>
+
+                {/* Generator Form */}
+                <div className="bg-white p-5 rounded-2xl border border-emerald-100 shadow-sm space-y-4">
+                  <div className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+                    <Wand2 className="w-4 h-4 text-emerald-600" />
+                    <span>Создать новое изображение</span>
+                  </div>
+
+                  {/* Type Selector */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button 
+                      onClick={() => setGenCategory('character')}
+                      className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-2 transition ${genCategory === 'character' ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Users className="w-4 h-4 text-emerald-600" /> Персонаж
+                    </button>
+                    <button 
+                      onClick={() => setGenCategory('location')}
+                      className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-2 transition ${genCategory === 'location' ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <MapPin className="w-4 h-4 text-emerald-600" /> Локация
+                    </button>
+                    <button 
+                      onClick={() => setGenCategory('map')}
+                      className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-2 transition ${genCategory === 'map' ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Compass className="w-4 h-4 text-emerald-600" /> Карта
+                    </button>
+                    <button 
+                      onClick={() => setGenCategory('cover')}
+                      className={`p-2.5 rounded-xl text-xs font-medium border flex items-center justify-center gap-2 transition ${genCategory === 'cover' ? 'bg-emerald-50 border-emerald-500 text-emerald-900 font-bold' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <Book className="w-4 h-4 text-emerald-600" /> Обложка
+                    </button>
+                  </div>
+
+                  {/* Prompt Textarea */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input 
+                      type="text" 
+                      value={genPrompt}
+                      onChange={(e) => setGenPrompt(e.target.value)}
+                      placeholder={
+                        genCategory === 'character' ? 'Элара, девушка с темными волосами в плаще...' :
+                        genCategory === 'location' ? 'Заснеженная башня на пике горы в тумане...' :
+                        genCategory === 'map' ? 'Карта материка с королевствами Элендор и Велдарн...' :
+                        'Обложка книги: Наследие Сумеречного Цвета...'
+                      }
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-500 transition"
+                    />
+                    <button 
+                      onClick={handleGenerateImage}
+                      disabled={isGenerating || !genPrompt.trim()}
+                      className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition shadow-sm"
+                    >
+                      {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      <span>{isGenerating ? 'Генерация...' : 'Сгенерировать'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Gallery Grid */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-sm text-slate-700">Галерея проекта</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {generatedGallery.map((item) => (
+                      <div key={item.id} className="bg-white rounded-xl border border-emerald-100 overflow-hidden shadow-sm group">
+                        <div className="h-48 overflow-hidden relative">
+                          <img src={item.url} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+                          <span className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur text-white text-[10px] font-semibold rounded-md uppercase">
+                            {item.type}
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <div className="font-bold text-sm text-slate-800 truncate">{item.title}</div>
+                          <div className="text-[11px] text-slate-500 mt-1 line-clamp-2">{item.prompt}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* LORE TAB */}
           {activeTab === 'lore' && (
             <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#FAF9F6]">
@@ -357,12 +511,6 @@ export default function App() {
                           <div className="text-xs text-slate-600 mt-1">{l.description}</div>
                         </div>
                       ))}
-                      {activeProject.lore.rules.map(r => (
-                        <div key={r.id} className="p-3 bg-amber-50/60 rounded-lg border border-amber-200/60">
-                          <div className="font-bold text-sm text-amber-900">{r.title}</div>
-                          <div className="text-xs text-amber-800 mt-1">{r.detail}</div>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </div>
@@ -374,36 +522,15 @@ export default function App() {
           {activeTab === 'analytics' && (
             <div className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#FAF9F6]">
               <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-800">Анализ текста и Тавтологии</h2>
-                  <button 
-                    onClick={runTautologyCheck}
-                    className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold transition"
-                  >
-                    Запустить анализ частоты слов
-                  </button>
-                </div>
-
+                <h2 className="text-lg sm:text-xl font-bold text-slate-800">Анализ текста</h2>
                 <div className="bg-white p-4 sm:p-6 rounded-xl border border-emerald-100 shadow-sm">
-                  <h3 className="font-semibold text-sm text-slate-700 mb-4">Часто встречающиеся слова:</h3>
-                  {tautologyResults.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                      {tautologyResults.map(([word, count]) => (
-                        <div key={word} className="p-2.5 bg-emerald-50/60 border border-emerald-100 rounded-lg flex items-center justify-between">
-                          <span className="text-xs sm:text-sm font-medium text-slate-800 truncate">{word}</span>
-                          <span className="text-xs font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-full ml-1">{count}x</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400">Нажмите кнопку выше, чтобы найти повторы слов в активной сцене.</p>
-                  )}
+                  <p className="text-xs text-slate-500">Запустите анализ текста в меню сверху для получения подробных метарик.</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* AI ASSISTANT PANEL (Desktop & Mobile Slide-over) */}
+          {/* AI ASSISTANT PANEL */}
           <div className={`
             fixed md:relative right-0 top-0 bottom-0 z-20 w-80 border-l border-emerald-100 bg-white p-4 flex flex-col justify-between shadow-lg md:shadow-none transition-transform
             ${mobileAiOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
@@ -413,7 +540,7 @@ export default function App() {
               <div className="flex items-center justify-between font-bold text-sm text-emerald-950 mb-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>ИИ-Соавтор (Gemini)</span>
+                  <span>ИИ-Соавтор</span>
                 </div>
                 <button onClick={() => setMobileAiOpen(false)} className="md:hidden text-slate-400">
                   <X className="w-4 h-4" />
@@ -422,33 +549,16 @@ export default function App() {
 
               <div className="space-y-2 mb-4">
                 <button 
-                  onClick={() => { setAiAnalyzing(true); setTimeout(() => { setAiAnalyzing(false); setAiOutput('ИИ сгенерировал продолжение: "Элара сжала рукоять кинжала, чувствуя, как холодный металл успокаивает дрожь в пальцах..."'); }, 1000); }}
+                  onClick={() => { setAiAnalyzing(true); setTimeout(() => { setAiAnalyzing(false); setAiOutput('Элара медленно оглянулась, сжимая в руке старинный амулет...'); }, 1000); }}
                   className="w-full text-left px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg text-xs font-medium border border-emerald-200/80 transition"
                 >
                   ⚡ Продолжить сцену
                 </button>
-                <button 
-                  onClick={() => { setAiAnalyzing(true); setTimeout(() => { setAiAnalyzing(false); setAiOutput('Стилевая подсказка: Попробуйте заменить глаголы движения на более описательные, чтобы передать атмосферу.'); }, 1000); }}
-                  className="w-full text-left px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg text-xs font-medium border border-emerald-200/80 transition"
-                >
-                  🎨 Улучшить описания
-                </button>
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 leading-relaxed min-h-[120px]">
-                {aiAnalyzing ? (
-                  <div className="text-emerald-700 font-medium animate-pulse flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Обработка запроса ИИ...</span>
-                  </div>
-                ) : (
-                  aiOutput || 'Выберите действие выше или запустите канон-чекер.'
-                )}
+                {aiAnalyzing ? 'Обработка запроса ИИ...' : (aiOutput || 'Выберите действие выше для работы с ИИ.')}
               </div>
-            </div>
-
-            <div className="p-3 bg-emerald-50/80 rounded-lg border border-emerald-100 text-[11px] text-emerald-900 mt-2">
-              💡 ИИ учитывает канон активного цикла.
             </div>
           </div>
 
