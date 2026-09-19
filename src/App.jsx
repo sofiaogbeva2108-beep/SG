@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { Document, Packer, Paragraph, HeadingLevel } from 'docx';
 import { saveAs } from 'file-saver';
 import { 
   BookOpen, Plus, Trash2, Edit3, Settings, Sparkles, CheckCircle, 
@@ -10,8 +10,8 @@ import {
   Flame, Award, ArrowLeft, Volume2, VolumeX, Save, ChevronRight, Loader2
 } from 'lucide-react';
 
-// Инициализация Gemini API (использует ключ из env или встроенный)
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
+// Инициализация Gemini API
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
 export default function App() {
   // --- STATE: CYCLES & BOOKS ---
@@ -68,7 +68,6 @@ export default function App() {
   const [activeSceneId, setActiveSceneId] = useState('sc-1');
   const [focusMode, setFocusMode] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [audioPlaying, setAudioPlaying] = useState(false);
 
   // RPG & AI STATE
   const [writerLevel] = useState(3);
@@ -118,9 +117,8 @@ export default function App() {
     if (!currentScene?.content) return;
     setAiLoading(true);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Проведи анализ литературного отрывка как строгого бета-ридера и литературного редактора.
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const prompt = `Проведи анализ литературного отрывка как строгого бета-ридера и литературного редактора.
         
 Контекст мира: ${currentCycle.description}
 Персонажи: ${currentCycle.lore.characters.map(c => c.name + ': ' + c.bio).join('; ')}
@@ -131,11 +129,14 @@ export default function App() {
 Выдай ответ по структуре:
 🟢 Сильные стороны: (1-2 пункта)
 🟡 Что провисает/скучно: (1-2 пункта)
-🔴 Детектор ООС (выход из характера) и логические дыры: (краткий анализ)`
-      });
-      setAiResponse(response.text);
+🔴 Детектор ООС (выход из характера) и логические дыры: (краткий анализ)`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      setAiResponse(response.text());
     } catch (e) {
-      setAiResponse('Ошибка запроса к ИИ. Убедитесь, что настроен VITE_GEMINI_API_KEY в переменных окружения.');
+      console.error(e);
+      setAiResponse('Ошибка запроса к ИИ. Убедитесь, что правильно настроена переменная VITE_GEMINI_API_KEY.');
     } finally {
       setAiLoading(false);
     }
@@ -144,17 +145,19 @@ export default function App() {
   const runCharacterSim = async () => {
     setAiLoading(true);
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `Смоделируй короткую напряженную сцену диалога между двумя персонажами для фэнтези книги.
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const prompt = `Смоделируй короткую напряженную сцену диалога между двумя персонажами для фэнтези книги.
 Персонаж 1: ${simChar1}
 Персонаж 2: ${simChar2}
 Мир: ${currentCycle.description}
 
-Напиши их диалог на основе характеров и сзади добавь вердикт ИИ о химии персонажей.`
-      });
-      setAiResponse(response.text);
+Напиши их диалог на основе характеров и добавь вердикт ИИ о химии персонажей.`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      setAiResponse(response.text());
     } catch (e) {
+      console.error(e);
       setAiResponse('Ошибка при моделировании симулятора.');
     } finally {
       setAiLoading(false);
@@ -413,7 +416,7 @@ export default function App() {
             <div className="h-full p-8 overflow-y-auto max-w-3xl mx-auto space-y-4">
               <h1 className="text-xl font-bold">Инструкция по Mythos Studio</h1>
               <div className="p-4 bg-white rounded-xl border border-emerald-100 text-xs leading-relaxed space-y-2">
-                <p>• <strong>Ключ Gemini:</strong> Добавьте ваш ключ в переменные окружения как VITE_GEMINI_API_KEY для активации ИИ-функций.</p>
+                <p>• <strong>Ключ Gemini:</strong> Добавьте ваш ключ в переменные окружения Vercel как VITE_GEMINI_API_KEY для активации ИИ-функций.</p>
                 <p>• <strong>Экспорт в DOCX:</strong> Кнопка вверху справа выгружает всю книгу со структурой глав в формат Word.</p>
               </div>
             </div>
