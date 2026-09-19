@@ -24,26 +24,18 @@ export default async function handler(req, res) {
 
     const cleanKey = apiKey.trim();
 
-    // Запрос к OpenRouter с точным названием модели
-    let response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cleanKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://sg-jet.vercel.app',
-        'X-Title': 'Mythos Studio',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-1.5-flash',
-        messages: [{ role: 'user', content: prompt || 'Привет' }],
-      }),
-    });
+    // Список рабочих моделей OpenRouter (включая бесплатные :free)
+    const modelsToTry = [
+      'google/gemini-2.0-flash-exp:free',
+      'google/gemini-1.5-flash:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'qwen/qwen-2.5-72b-instruct:free'
+    ];
 
-    let data = await response.json();
+    let lastError = null;
 
-    // Резервный вызов на случай другого ID модели в OpenRouter
-    if (!response.ok && data.error?.code === 404) {
-      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    for (const model of modelsToTry) {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${cleanKey}`,
@@ -52,22 +44,21 @@ export default async function handler(req, res) {
           'X-Title': 'Mythos Studio',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-001',
+          model: model,
           messages: [{ role: 'user', content: prompt || 'Привет' }],
         }),
       });
-      data = await response.json();
+
+      const data = await response.json();
+
+      if (response.ok && data.choices?.[0]?.message?.content) {
+        return res.status(200).json({ text: data.choices[0].message.content });
+      }
+
+      lastError = data.error?.message || `Failed model ${model}`;
     }
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: data.error?.message || 'OpenRouter Error',
-        details: data,
-      });
-    }
-
-    const generatedText = data.choices?.[0]?.message?.content || 'Пустой ответ.';
-    return res.status(200).json({ text: generatedText });
+    return res.status(400).json({ error: lastError });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Server Internal Error' });
   }
