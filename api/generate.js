@@ -1,18 +1,14 @@
 // api/generate.js
+const https = require('https');
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('// api/generate.js
-
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
@@ -20,91 +16,64 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
+    const { prompt } = req.body || {};
     const apiKey = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'API ключ не найден в настройках Vercel' });
+      return res.status(500).json({ error: 'API key is missing in Vercel settings' });
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const postData = JSON.stringify({
+      model: 'google/gemini-flash-1.5',
+      messages: [{ role: 'user', content: prompt || 'Привет' }],
+    });
+
+    const options = {
+      hostname: 'openrouter.ai',
+      port: 443,
+      path: '/api/v1/chat/completions',
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Content-Length': Buffer.byteLength(postData),
         'HTTP-Referer': 'https://sg-jet.vercel.app',
         'X-Title': 'Mythos Studio',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-flash-1.5',
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    };
+
+    const request = https.request(options, (response) => {
+      let data = '';
+
+      response.on('data', (chunk) => {
+        data += chunk;
+      });
+
+      response.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            const generatedText = parsed.choices?.[0]?.message?.content || 'Пустой ответ.';
+            return res.status(200).json({ text: generatedText });
+          } else {
+            return res.status(response.statusCode).json({
+              error: parsed.error?.message || 'OpenRouter Error',
+              details: parsed,
+            });
+          }
+        } catch (e) {
+          return res.status(500).json({ error: 'Failed to parse OpenRouter response', raw: data });
+        }
+      });
     });
 
-    const data = await response.json();
+    request.on('error', (error) => {
+      return res.status(500).json({ error: error.message });
+    });
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: data.error?.message || 'OpenRouter API Error',
-        details: data,
-      });
-    }
-
-    const generatedText = data.choices?.[0]?.message?.content || 'Пустой ответ.';
-    return res.status(200).json({ text: generatedText });
+    request.write(postData);
+    request.end();
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
+    return res.status(500).json({ error: error.message });
   }
-}Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { prompt } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({ error: 'Ключ API не настроен на сервере Vercel' });
-    }
-
-    const cleanKey = apiKey.trim();
-
-    // Передаем ключ AQ... и в URL, и в заголовок Authorization для абсолютной универсальности
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${cleanKey}`,
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: data.error?.message || 'Google API Error',
-        details: data,
-      });
-    }
-
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Пустой ответ от модели.';
-    return res.status(200).json({ text: generatedText });
-  } catch (error) {
-    return res.status(500).json({ error: error.message || 'Internal Server Error' });
-  }
-}
+};
