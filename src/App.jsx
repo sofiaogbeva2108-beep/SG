@@ -13,6 +13,19 @@ import {
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
 export default function App() {
+  // AUTH & USER STATE
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('mythos_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [isDemoMode, setIsDemoMode] = useState(() => {
+    return localStorage.getItem('mythos_demo') === 'true';
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authName, setAuthName] = useState('');
+
+  // CYCLES & BOOKS DATA
   const [cycles, setCycles] = useState(() => {
     const saved = localStorage.getItem('mythos_cycles');
     if (saved) {
@@ -94,6 +107,31 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mythos_cycles', JSON.stringify(cycles));
   }, [cycles]);
+
+  // AUTH HANDLERS
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!authEmail.trim() || !authName.trim()) return;
+    const user = { name: authName, email: authEmail };
+    setCurrentUser(user);
+    setIsDemoMode(false);
+    localStorage.setItem('mythos_user', JSON.stringify(user));
+    localStorage.removeItem('mythos_demo');
+    setShowAuthModal(false);
+  };
+
+  const handleStartDemo = () => {
+    setIsDemoMode(true);
+    localStorage.setItem('mythos_demo', 'true');
+    setShowAuthModal(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsDemoMode(false);
+    localStorage.removeItem('mythos_user');
+    localStorage.removeItem('mythos_demo');
+  };
 
   const currentCycle = cycles.find(c => c.id === activeCycleId) || cycles[0];
   const currentBook = currentCycle?.books.find(b => b.id === activeBookId) || currentCycle?.books[0];
@@ -355,18 +393,60 @@ export default function App() {
               <span>Mythos Studio</span>
             </div>
 
-            <div className="p-3 bg-emerald-900/60 rounded-xl border border-emerald-800 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-emerald-100 border border-emerald-500">
-                L{writerLevel}
-              </div>
-              <div>
-                <div className="text-xs font-bold text-emerald-200">Мастер Сюжета</div>
-                <div className="flex items-center gap-1 text-[11px] text-emerald-400 mt-0.5">
-                  <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span>{streakDays} дней в строю</span>
+            {/* USER PROFILE & DEMO STATUS */}
+            {currentUser ? (
+              <div className="p-3 bg-emerald-900/60 rounded-xl border border-emerald-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-emerald-100 border border-emerald-500 uppercase">
+                    {currentUser.name.slice(0, 2)}
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="text-xs font-bold text-emerald-200 truncate">{currentUser.name}</div>
+                    <div className="flex items-center gap-1 text-[11px] text-emerald-400 mt-0.5">
+                      <Flame className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                      <span>{streakDays} дней</span>
+                    </div>
+                  </div>
                 </div>
+                <button 
+                  onClick={handleLogout}
+                  className="text-[10px] text-emerald-400 hover:text-white underline ml-2"
+                >
+                  Выйти
+                </button>
               </div>
-            </div>
+            ) : isDemoMode ? (
+              <div className="p-3 bg-amber-950/60 rounded-xl border border-amber-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Демо-режим
+                  </span>
+                  <button 
+                    onClick={handleLogout}
+                    className="text-[10px] text-amber-400 hover:text-amber-200 underline"
+                  >
+                    Сброс
+                  </button>
+                </div>
+                <p className="text-[10px] text-amber-200/80 leading-tight">
+                  Вы можете тестировать весь функционал. Для полноценного сохранения войдите в аккаунт.
+                </p>
+                <button 
+                  onClick={() => setShowAuthModal(true)}
+                  className="w-full py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[11px] font-semibold transition"
+                >
+                  Войти в аккаунт
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setShowAuthModal(true)}
+                className="w-full p-3 bg-emerald-800 hover:bg-emerald-700 text-emerald-100 rounded-xl font-semibold text-xs transition border border-emerald-600 flex items-center justify-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                <span>Войти или Попробовать</span>
+              </button>
+            )}
 
             {/* CYCLE SELECTOR */}
             <div className="space-y-1">
@@ -823,6 +903,68 @@ export default function App() {
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setShowNewBookModal(false)} className="px-4 py-2 border rounded-xl text-xs font-semibold">Отмена</button>
               <button onClick={handleCreateBook} className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-semibold">Добавить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: AUTHENTICATION & DEMO MODE */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl border border-emerald-100">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2 text-emerald-950 font-bold text-lg">
+                <Feather className="w-5 h-5 text-emerald-600" />
+                <span>Вход в Mythos Studio</span>
+              </div>
+              <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-xs text-slate-500">
+              Войдите для синхронизации проектов или используйте гостевой режим для тестирования.
+            </p>
+
+            <form onSubmit={handleLogin} className="space-y-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Ваше имя или псевдоним</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Софья" 
+                  value={authName}
+                  onChange={e => setAuthName(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 uppercase mb-1 block">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="writer@mythos.studio" 
+                  value={authEmail}
+                  onChange={e => setAuthEmail(e.target.value)}
+                  className="w-full p-2.5 border rounded-xl text-xs outline-none focus:border-emerald-600"
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition mt-2"
+              >
+                Войти в кабинет
+              </button>
+            </form>
+
+            <div className="pt-3 border-t border-slate-100 flex flex-col items-center">
+              <button 
+                onClick={handleStartDemo}
+                className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold border border-amber-200 transition flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Попробовать демо-режим (без регистрации)</span>
+              </button>
             </div>
           </div>
         </div>
