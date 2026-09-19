@@ -71,6 +71,14 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
 
+  // MODALS & INPUTS FOR CREATION
+  const [showNewCycleModal, setShowNewCycleModal] = useState(false);
+  const [newCycleTitle, setNewCycleTitle] = useState('');
+  const [newCycleDesc, setNewCycleDesc] = useState('');
+
+  const [showNewBookModal, setShowNewBookModal] = useState(false);
+  const [newBookTitle, setNewBookTitle] = useState('');
+
   // LAB & GENERATORS STATE
   const [simChar1, setSimChar1] = useState('Элара');
   const [simChar2, setSimChar2] = useState('Каин');
@@ -95,6 +103,93 @@ export default function App() {
     const sc = ch.scenes.find(s => s.id === activeSceneId);
     if (sc) currentScene = sc;
   });
+
+  // --- CREATION HANDLERS ---
+  const handleCreateCycle = () => {
+    if (!newCycleTitle.trim()) return;
+    const newCycle = {
+      id: 'cycle-' + Date.now(),
+      title: newCycleTitle,
+      description: newCycleDesc || 'Новый литературный цикл.',
+      lore: { characters: [], locations: [] },
+      books: [
+        {
+          id: 'book-' + Date.now(),
+          title: 'Книга 1',
+          chapters: [
+            {
+              id: 'chap-' + Date.now(),
+              title: 'Глава 1',
+              scenes: [{ id: 'sc-' + Date.now(), title: 'Сцена 1', content: '' }]
+            }
+          ]
+        }
+      ]
+    };
+    setCycles([...cycles, newCycle]);
+    setActiveCycleId(newCycle.id);
+    setActiveBookId(newCycle.books[0].id);
+    setActiveSceneId(newCycle.books[0].chapters[0].scenes[0].id);
+    setNewCycleTitle('');
+    setNewCycleDesc('');
+    setShowNewCycleModal(false);
+  };
+
+  const handleCreateBook = () => {
+    if (!newBookTitle.trim() || !currentCycle) return;
+    const newBook = {
+      id: 'book-' + Date.now(),
+      title: newBookTitle,
+      chapters: [
+        {
+          id: 'chap-' + Date.now(),
+          title: 'Глава 1',
+          scenes: [{ id: 'sc-' + Date.now(), title: 'Сцена 1', content: '' }]
+        }
+      ]
+    };
+    setCycles(prev => prev.map(c => c.id === activeCycleId ? { ...c, books: [...c.books, newBook] } : c));
+    setActiveBookId(newBook.id);
+    setActiveSceneId(newBook.chapters[0].scenes[0].id);
+    setNewBookTitle('');
+    setShowNewBookModal(false);
+  };
+
+  const handleAddChapter = () => {
+    if (!currentBook) return;
+    const newChapter = {
+      id: 'chap-' + Date.now(),
+      title: `Глава ${currentBook.chapters.length + 1}`,
+      scenes: [{ id: 'sc-' + Date.now(), title: 'Сцена 1', content: '' }]
+    };
+    setCycles(prev => prev.map(cyc => cyc.id === activeCycleId ? {
+      ...cyc,
+      books: cyc.books.map(bk => bk.id === activeBookId ? {
+        ...bk,
+        chapters: [...bk.chapters, newChapter]
+      } : bk)
+    } : cyc));
+    setActiveSceneId(newChapter.scenes[0].id);
+  };
+
+  const handleAddScene = (chapterId) => {
+    const newScene = {
+      id: 'sc-' + Date.now(),
+      title: 'Новая сцена',
+      content: ''
+    };
+    setCycles(prev => prev.map(cyc => cyc.id === activeCycleId ? {
+      ...cyc,
+      books: cyc.books.map(bk => bk.id === activeBookId ? {
+        ...bk,
+        chapters: bk.chapters.map(ch => ch.id === chapterId ? {
+          ...ch,
+          scenes: [...ch.scenes, newScene]
+        } : ch)
+      } : bk)
+    } : cyc));
+    setActiveSceneId(newScene.id);
+  };
 
   const updateSceneContent = (newContent) => {
     if (!currentScene) return;
@@ -156,8 +251,8 @@ export default function App() {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       const prompt = `Проведи детальный анализ литературного отрывка как бета-ридер и стилист.
         
-Контекст мира: ${currentCycle.description}
-Персонажи: ${currentCycle.lore.characters.map(c => c.name + ': ' + c.bio).join('; ')}
+Контекст мира: ${currentCycle?.description || ''}
+Персонажи: ${currentCycle?.lore?.characters?.map(c => c.name + ': ' + c.bio).join('; ') || 'Нет'}
 
 Текст сцены:
 "${currentScene.content}"
@@ -186,7 +281,7 @@ export default function App() {
 Персонаж 1: ${simChar1}
 Персонаж 2: ${simChar2}
 Причина конфликта: ${simConflict}
-Мир: ${currentCycle.description}
+Мир: ${currentCycle?.description || ''}
 
 Напиши напряженный диалог с описанием эмоций и жестов, а в конце дай вердикт ИИ о химии персонажей.`;
 
@@ -205,7 +300,7 @@ export default function App() {
     setAiLoading(true);
     try {
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      let prompt = `Сгенерируй 5 креативных идей для фэнтези мира "${currentCycle.title}". Описание мира: ${currentCycle.description}. `;
+      let prompt = `Сгенерируй 5 креативных идей для фэнтези мира "${currentCycle?.title || ''}". Описание мира: ${currentCycle?.description || ''}. `;
       
       if (genCategory === 'names') prompt += 'Предложи 10 атмосферных имён персонажей и названий древних родов с краткой характеристикой.';
       if (genCategory === 'twists') prompt += 'Предложи 5 неожиданных сюжетных поворотов (Plot Twists) для текущей сюжетной арки.';
@@ -223,9 +318,10 @@ export default function App() {
   };
 
   const exportToDocx = () => {
+    if (!currentBook) return;
     const docChildren = [
       new Paragraph({ text: currentBook.title, heading: HeadingLevel.TITLE }),
-      new Paragraph({ text: `Цикл: ${currentCycle.title}`, heading: HeadingLevel.SUBTITLE }),
+      new Paragraph({ text: `Цикл: ${currentCycle?.title || ''}`, heading: HeadingLevel.SUBTITLE }),
       new Paragraph({ text: '' })
     ];
 
@@ -270,6 +366,29 @@ export default function App() {
                   <span>{streakDays} дней в строю</span>
                 </div>
               </div>
+            </div>
+
+            {/* CYCLE SELECTOR */}
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Текущий цикл</div>
+              <select 
+                value={activeCycleId}
+                onChange={(e) => {
+                  setActiveCycleId(e.target.value);
+                  const selectedCyc = cycles.find(c => c.id === e.target.value);
+                  if (selectedCyc && selectedCyc.books.length > 0) {
+                    setActiveBookId(selectedCyc.books[0].id);
+                    if (selectedCyc.books[0].chapters.length > 0) {
+                      setActiveSceneId(selectedCyc.books[0].chapters[0].scenes[0]?.id || '');
+                    }
+                  }
+                }}
+                className="w-full bg-emerald-900 border border-emerald-700 text-emerald-100 text-xs rounded-lg p-2 outline-none font-semibold"
+              >
+                {cycles.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -333,15 +452,53 @@ export default function App() {
           {activeView === 'editor' && (
             <div className="h-full flex">
               <div className="w-64 border-r border-emerald-100 bg-white p-4 overflow-y-auto hidden md:block">
-                <div className="text-xs font-bold text-slate-400 uppercase mb-3">Главы и сцены</div>
-                {currentBook.chapters.map(ch => (
+                
+                {/* BOOK SELECTOR & ADD BOOK */}
+                <div className="mb-4 pb-3 border-b border-emerald-100">
+                  <div className="text-[10px] uppercase font-bold text-slate-400 mb-1">Выбор книги</div>
+                  <select 
+                    value={activeBookId}
+                    onChange={e => {
+                      setActiveBookId(e.target.value);
+                      const bk = currentCycle?.books.find(b => b.id === e.target.value);
+                      if (bk && bk.chapters.length > 0) {
+                        setActiveSceneId(bk.chapters[0].scenes[0]?.id || '');
+                      }
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-1.5 font-bold mb-2"
+                  >
+                    {currentCycle?.books.map(b => (
+                      <option key={b.id} value={b.id}>{b.title}</option>
+                    ))}
+                  </select>
+                  <button 
+                    onClick={() => setShowNewBookModal(true)}
+                    className="w-full py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex justify-center items-center gap-1 hover:bg-emerald-100"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Новая книга
+                  </button>
+                </div>
+
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Главы и сцены</span>
+                  <button onClick={handleAddChapter} className="p-1 hover:bg-slate-100 rounded text-emerald-700" title="Добавить главу">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {currentBook?.chapters.map(ch => (
                   <div key={ch.id} className="mb-4">
-                    <div className="font-bold text-xs text-slate-700 mb-1">{ch.title}</div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-xs text-slate-700">{ch.title}</span>
+                      <button onClick={() => handleAddScene(ch.id)} className="text-[10px] text-emerald-600 font-semibold hover:underline">
+                        + сцена
+                      </button>
+                    </div>
                     {ch.scenes.map(sc => (
                       <button
                         key={sc.id}
                         onClick={() => setActiveSceneId(sc.id)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition truncate block ${activeSceneId === sc.id ? 'bg-emerald-700 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition truncate block mb-1 ${activeSceneId === sc.id ? 'bg-emerald-700 text-white' : 'hover:bg-slate-100 text-slate-600'}`}
                       >
                         {sc.title}
                       </button>
@@ -369,6 +526,7 @@ export default function App() {
                       } : cyc));
                     }}
                     className="text-xl font-bold border-b border-emerald-100 pb-2 mb-4 outline-none"
+                    placeholder="Название сцены"
                   />
                   <textarea
                     value={currentScene?.content || ''}
@@ -381,12 +539,51 @@ export default function App() {
             </div>
           )}
 
+          {/* DASHBOARD WITH NEW CYCLE BUTTON */}
+          {activeView === 'dashboard' && (
+            <div className="h-full p-8 overflow-y-auto max-w-4xl mx-auto space-y-6">
+              <div className="flex justify-between items-center">
+                <h1 className="text-2xl font-bold">Мои Циклы Книг</h1>
+                <button 
+                  onClick={() => setShowNewCycleModal(true)}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-xl flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Новый Цикл
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cycles.map(cyc => (
+                  <div key={cyc.id} className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm space-y-3 flex flex-col justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-emerald-900">{cyc.title}</h2>
+                      <p className="text-xs text-slate-500 mt-1">{cyc.description}</p>
+                    </div>
+                    <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                      <span className="text-xs font-semibold text-emerald-700">Книг: {cyc.books.length}</span>
+                      <button 
+                        onClick={() => {
+                          setActiveCycleId(cyc.id);
+                          setActiveBookId(cyc.books[0]?.id || '');
+                          setActiveView('editor');
+                        }}
+                        className="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold hover:bg-emerald-100"
+                      >
+                        Открыть кабинет
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* LORE BASE */}
           {activeView === 'lore' && (
             <div className="h-full p-8 overflow-y-auto max-w-4xl mx-auto space-y-8">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">База Лора и Мироустройства</h1>
-                <p className="text-xs text-slate-500">Управляйте персонажами и локациями мира "{currentCycle.title}"</p>
+                <p className="text-xs text-slate-500">Управляйте персонажами и локациями мира "{currentCycle?.title || ''}"</p>
               </div>
 
               {/* CHARACTERS */}
@@ -395,7 +592,7 @@ export default function App() {
                   <Users className="w-5 h-5 text-emerald-600" /> Персонажи
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {currentCycle.lore.characters.map(c => (
+                  {currentCycle?.lore?.characters?.map(c => (
                     <div key={c.id} className="p-4 bg-white rounded-xl border border-emerald-100 shadow-sm">
                       <div className="font-bold text-sm text-slate-800">{c.name}</div>
                       <div className="text-xs text-emerald-700 font-semibold mb-1">{c.role}</div>
@@ -431,7 +628,7 @@ export default function App() {
                   <MapPin className="w-5 h-5 text-emerald-600" /> Локации
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {currentCycle.lore.locations.map(l => (
+                  {currentCycle?.lore?.locations?.map(l => (
                     <div key={l.id} className="p-4 bg-white rounded-xl border border-emerald-100 shadow-sm">
                       <div className="font-bold text-sm text-slate-800">{l.name}</div>
                       <div className="text-xs text-slate-600 mt-1">{l.description}</div>
@@ -567,25 +764,11 @@ export default function App() {
             </div>
           )}
 
-          {/* DASHBOARD */}
-          {activeView === 'dashboard' && (
-            <div className="h-full p-8 overflow-y-auto max-w-4xl mx-auto space-y-6">
-              <h1 className="text-2xl font-bold">Мои Циклы Книг</h1>
-              {cycles.map(cyc => (
-                <div key={cyc.id} className="bg-white p-6 rounded-2xl border border-emerald-100 shadow-sm space-y-3">
-                  <h2 className="text-lg font-bold text-emerald-900">{cyc.title}</h2>
-                  <p className="text-xs text-slate-500">{cyc.description}</p>
-                  <div className="pt-2 text-xs font-semibold text-emerald-700">Книг в цикле: {cyc.books.length}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* READER */}
           {activeView === 'reader' && (
             <div className="h-full p-8 overflow-y-auto max-w-2xl mx-auto font-serif leading-relaxed">
-              <h1 className="text-2xl font-bold font-sans text-center mb-6">{currentBook.title}</h1>
-              {currentBook.chapters.map(ch => (
+              <h1 className="text-2xl font-bold font-sans text-center mb-6">{currentBook?.title}</h1>
+              {currentBook?.chapters?.map(ch => (
                 <div key={ch.id} className="mb-6">
                   <h2 className="text-lg font-bold font-sans mb-3">{ch.title}</h2>
                   {ch.scenes.map(sc => (
@@ -598,6 +781,53 @@ export default function App() {
 
         </div>
       </div>
+
+      {/* MODAL: CREATE CYCLE */}
+      {showNewCycleModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <h2 className="text-lg font-bold">Создать новый цикл</h2>
+            <input 
+              type="text" 
+              placeholder="Название цикла (например: Легенды Элендора)" 
+              value={newCycleTitle}
+              onChange={e => setNewCycleTitle(e.target.value)}
+              className="w-full p-2.5 border rounded-xl text-xs outline-none"
+            />
+            <textarea 
+              placeholder="Описание цикла и жанр" 
+              value={newCycleDesc}
+              onChange={e => setNewCycleDesc(e.target.value)}
+              className="w-full p-2.5 border rounded-xl text-xs h-24 resize-none outline-none"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowNewCycleModal(false)} className="px-4 py-2 border rounded-xl text-xs font-semibold">Отмена</button>
+              <button onClick={handleCreateCycle} className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-semibold">Создать</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREATE BOOK */}
+      {showNewBookModal && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
+            <h2 className="text-lg font-bold">Добавить книгу в цикл</h2>
+            <input 
+              type="text" 
+              placeholder="Название книги (например: Книга 2: Тень Дракона)" 
+              value={newBookTitle}
+              onChange={e => setNewBookTitle(e.target.value)}
+              className="w-full p-2.5 border rounded-xl text-xs outline-none"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowNewBookModal(false)} className="px-4 py-2 border rounded-xl text-xs font-semibold">Отмена</button>
+              <button onClick={handleCreateBook} className="px-4 py-2 bg-emerald-700 text-white rounded-xl text-xs font-semibold">Добавить</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
