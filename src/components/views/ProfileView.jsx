@@ -2,11 +2,11 @@
 import React from 'react';
 import { 
   Flame, Award, BookOpen, Users, MapPin, Feather, 
-  CheckCircle2, Calendar, Sparkles, Shield, TrendingUp 
+  CheckCircle2, Sparkles, TrendingUp 
 } from 'lucide-react';
 
 export default function ProfileView({ currentUser, cycles, streakDays = 5 }) {
-  const userName = currentUser?.name || 'Автор';
+  const userName = currentUser?.name || 'Софья';
   const userEmail = currentUser?.email || 'writer@mythos.studio';
 
   // Расчёт общей статистики автора
