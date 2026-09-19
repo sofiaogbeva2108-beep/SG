@@ -6,7 +6,7 @@ import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LandingView from './components/views/LandingView';
 import DashboardView from './components/views/DashboardView';
-import ProfileView from './components/views/ProfileView'; // <--- Подключили Личный кабинет
+import ProfileView from './components/views/ProfileView';
 import EditorView from './components/views/EditorView';
 import LoreView from './components/views/LoreView';
 import AnalyticsView from './components/views/AnalyticsView';
@@ -22,47 +22,7 @@ import CreateBookModal from './components/modals/CreateBookModal';
 import { runAiBetaReader, runCharacterSim, runBrainstorm } from './services/aiService';
 import { exportToDocx } from './services/docxExport';
 
-// Демонстрационный шаблон (только для Демо-режима)
-const DEMO_CYCLES = [
-  {
-    id: 'cycle-1',
-    title: 'Хроники Сумеречного Цвета',
-    description: '«История, которая ещё не рассказана.»',
-    lore: {
-      characters: [
-        { id: 'c-1', name: 'Элара', role: 'Главная героиня', bio: 'Владеет редкой магией света. Ищет тайны своего происхождения.' },
-        { id: 'c-2', name: 'Каин', role: 'Защитник / Спутник', bio: 'Бывший страж. Храбрый, но скрытный.' },
-        { id: 'c-3', name: 'Лорд Вудс', role: 'Антагонист', bio: 'Правитель северных земель, охотящийся за древними артефактами.' }
-      ],
-      locations: [
-        { id: 'l-1', name: 'Сумеречный лес', description: 'Старинное укрепление и мистические чащи.' },
-        { id: 'l-2', name: 'Долина Света', description: 'Неприступная цитадель в северной долине.' }
-      ]
-    },
-    books: [
-      {
-        id: 'book-1',
-        title: 'Книга 1: Наследие',
-        chapters: [
-          {
-            id: 'chap-1',
-            title: 'Глава 1: Пробуждение в тумане',
-            scenes: [
-              { 
-                id: 'sc-1', 
-                title: 'Сцена 1: Заброшенная башня', 
-                content: 'Холодный ветер проникал сквозь узкие бойницы башни, заставляя Элару сильнее сжаться в плащ. Каин молча стоял у края площадки, устремив взгляд в заснеженную долину.' 
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
-
 export default function App() {
-  // --- AUTH & ACCOUNTS STATE ---
   const [registeredUsers, setRegisteredUsers] = useState(() => {
     const saved = localStorage.getItem('mythos_registered_users');
     return saved ? JSON.parse(saved) : [];
@@ -83,9 +43,8 @@ export default function App() {
   const [authName, setAuthName] = useState('');
   const [authError, setAuthError] = useState('');
 
-  // --- CYCLES DATA STATE (Привязано лично к пользователю) ---
+  // ХРАНИЛИЩЕ ВСЕХ ПРОЕКТОВ (КНИГ И ЦИКЛОВ) АВТОРА
   const [cycles, setCycles] = useState(() => {
-    if (isDemoMode) return DEMO_CYCLES;
     if (currentUser?.email) {
       const userSaved = localStorage.getItem(`mythos_cycles_${currentUser.email.toLowerCase()}`);
       return userSaved ? JSON.parse(userSaved) : [];
@@ -99,7 +58,6 @@ export default function App() {
   const [activeSceneId, setActiveSceneId] = useState('');
   const [focusMode, setFocusMode] = useState(false);
 
-  // RPG & AI STATE
   const [streakDays] = useState(5);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
@@ -113,8 +71,8 @@ export default function App() {
   const [newBookTitle, setNewBookTitle] = useState('');
 
   // LAB & GENERATORS STATE
-  const [simChar1, setSimChar1] = useState('Элара');
-  const [simChar2, setSimChar2] = useState('Каин');
+  const [simChar1, setSimChar1] = useState('');
+  const [simChar2, setSimChar2] = useState('');
   const [simConflict, setSimConflict] = useState('Тайна из прошлого');
   const [genCategory, setGenCategory] = useState('names');
 
@@ -124,24 +82,31 @@ export default function App() {
   const [newLocName, setNewLocName] = useState('');
   const [newLocDesc, setNewLocDesc] = useState('');
 
-  // Переключение активного цикла при смене списка
+  // Выбор активного проекта
   useEffect(() => {
     if (cycles.length > 0) {
-      if (!cycles.find(c => c.id === activeCycleId)) {
-        setActiveCycleId(cycles[0].id);
-        if (cycles[0].books?.length > 0) {
-          setActiveBookId(cycles[0].books[0].id);
-          setActiveSceneId(cycles[0].books[0].chapters?.[0]?.scenes?.[0]?.id || '');
+      const currentCyc = cycles.find(c => c.id === activeCycleId) || cycles[0];
+      if (currentCyc.id !== activeCycleId) {
+        setActiveCycleId(currentCyc.id);
+      }
+      if (currentCyc.books?.length > 0) {
+        const currentBk = currentCyc.books.find(b => b.id === activeBookId) || currentCyc.books[0];
+        if (currentBk.id !== activeBookId) {
+          setActiveBookId(currentBk.id);
+          setActiveSceneId(currentBk.chapters?.[0]?.scenes?.[0]?.id || '');
         }
+      } else {
+        setActiveBookId('');
+        setActiveSceneId('');
       }
     } else {
       setActiveCycleId('');
       setActiveBookId('');
       setActiveSceneId('');
     }
-  }, [cycles]);
+  }, [cycles, activeCycleId, activeBookId]);
 
-  // АВТОСОХРАНЕНИЕ ДАННЫХ В ПЕРСОНАЛЬНОЕ ХРАНИЛИЩЕ ПОЛЬЗОВАТЕЛЯ
+  // Сохранение личных данных автора
   useEffect(() => {
     if (currentUser?.email && !isDemoMode) {
       localStorage.setItem(`mythos_cycles_${currentUser.email.toLowerCase()}`, JSON.stringify(cycles));
@@ -152,7 +117,7 @@ export default function App() {
     localStorage.setItem('mythos_registered_users', JSON.stringify(registeredUsers));
   }, [registeredUsers]);
 
-  // --- AUTH HANDLERS ---
+  // AUTH HANDLERS
   const handleRegister = (e) => {
     e.preventDefault();
     setAuthError('');
@@ -160,22 +125,16 @@ export default function App() {
       setAuthError('Заполните все поля');
       return;
     }
-
     const existingUser = registeredUsers.find(u => u.email.toLowerCase() === authEmail.toLowerCase());
     if (existingUser) {
       setAuthError('Пользователь с таким Email уже существует');
       return;
     }
-
     const newUser = { name: authName, email: authEmail, password: authPassword };
     setRegisteredUsers([...registeredUsers, newUser]);
-
     setCurrentUser({ name: newUser.name, email: newUser.email });
     setIsDemoMode(false);
-    
-    // Новые пользователи начинают с ЧИСТЫМ списком проектов
     setCycles([]);
-    
     localStorage.setItem('mythos_user', JSON.stringify({ name: newUser.name, email: newUser.email }));
     localStorage.removeItem('mythos_demo');
     setAuthPassword('');
@@ -187,19 +146,14 @@ export default function App() {
     const user = registeredUsers.find(
       u => u.email.toLowerCase() === authEmail.toLowerCase() && u.password === authPassword
     );
-
     if (!user) {
       setAuthError('Неверный Email или пароль');
       return;
     }
-
     setCurrentUser({ name: user.name, email: user.email });
     setIsDemoMode(false);
-    
-    // Загружаем личные данные вошедшего пользователя
     const userSaved = localStorage.getItem(`mythos_cycles_${user.email.toLowerCase()}`);
     setCycles(userSaved ? JSON.parse(userSaved) : []);
-
     localStorage.setItem('mythos_user', JSON.stringify({ name: user.name, email: user.email }));
     localStorage.removeItem('mythos_demo');
     setAuthPassword('');
@@ -207,7 +161,6 @@ export default function App() {
 
   const handleStartDemo = () => {
     setIsDemoMode(true);
-    setCycles(DEMO_CYCLES);
     localStorage.setItem('mythos_demo', 'true');
   };
 
@@ -228,18 +181,19 @@ export default function App() {
     if (sc) currentScene = sc;
   });
 
-  // --- CREATION HANDLERS ---
+  // СОЗДАНИЕ НОВОГО ПРОЕКТА / КНИГИ
   const handleCreateCycle = () => {
     if (!newCycleTitle.trim()) return;
+    const newBookId = 'book-' + Date.now();
     const newCycle = {
       id: 'cycle-' + Date.now(),
       title: newCycleTitle,
-      description: newCycleDesc || 'Новый литературный цикл.',
+      description: newCycleDesc || 'Самостоятельное произведение или цикл.',
       lore: { characters: [], locations: [] },
       books: [
         {
-          id: 'book-' + Date.now(),
-          title: 'Книга 1',
+          id: newBookId,
+          title: 'Том 1 / Основной текст',
           chapters: [
             {
               id: 'chap-' + Date.now(),
@@ -250,10 +204,9 @@ export default function App() {
         }
       ]
     };
-    const updated = [...cycles, newCycle];
-    setCycles(updated);
+    setCycles([...cycles, newCycle]);
     setActiveCycleId(newCycle.id);
-    setActiveBookId(newCycle.books[0].id);
+    setActiveBookId(newBookId);
     setActiveSceneId(newCycle.books[0].chapters[0].scenes[0].id);
     setNewCycleTitle('');
     setNewCycleDesc('');
@@ -336,6 +289,7 @@ export default function App() {
     }));
   };
 
+  // Персонажи и Локации полностью принадлежат текущему Проекту/Циклу
   const addCharacter = () => {
     if (!newCharName.trim() || !activeCycleId) return;
     setCycles(prev => prev.map(c => {
@@ -344,7 +298,10 @@ export default function App() {
         ...c,
         lore: {
           ...c.lore,
-          characters: [...(c.lore?.characters || []), { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }]
+          characters: [
+            ...(c.lore?.characters || []), 
+            { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }
+          ]
         }
       };
     }));
@@ -360,7 +317,10 @@ export default function App() {
         ...c,
         lore: {
           ...c.lore,
-          locations: [...(c.lore?.locations || []), { id: 'l-' + Date.now(), name: newLocName, description: newLocDesc }]
+          locations: [
+            ...(c.lore?.locations || []), 
+            { id: 'l-' + Date.now(), name: newLocName, description: newLocDesc }
+          ]
         }
       };
     }));
@@ -368,7 +328,7 @@ export default function App() {
     setNewLocDesc('');
   };
 
-  // --- AI HANDLERS ---
+  // AI HANDLERS
   const handleAiBetaReader = async () => {
     setAiLoading(true);
     try {
@@ -408,7 +368,6 @@ export default function App() {
   const totalWords = currentBook?.chapters?.reduce((acc, ch) => 
     acc + ch.scenes.reduce((sAcc, sc) => sAcc + (sc.content ? sc.content.trim().split(/\s+/).filter(Boolean).length : 0), 0), 0) || 0;
 
-  // --- LANDING PAGE ---
   if (!currentUser && !isDemoMode) {
     return (
       <LandingView 
@@ -429,11 +388,9 @@ export default function App() {
     );
   }
 
-  // --- MAIN WORKSPACE ---
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-[#FAF9F6] text-slate-800 font-sans overflow-hidden">
       
-      {/* SIDEBAR */}
       <Sidebar 
         focusMode={focusMode}
         currentUser={currentUser}
@@ -441,15 +398,17 @@ export default function App() {
         handleLogout={handleLogout}
         activeCycleId={activeCycleId}
         setActiveCycleId={setActiveCycleId}
-        cycles={cycles}
+        activeBookId={activeBookId}
         setActiveBookId={setActiveBookId}
+        cycles={cycles}
         setActiveSceneId={setActiveSceneId}
         activeView={activeView}
         setActiveView={setActiveView}
         setAiResponse={setAiResponse}
+        setShowNewCycleModal={setShowNewCycleModal}
+        setShowNewBookModal={setShowNewBookModal}
       />
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
           focusMode={focusMode}
@@ -457,6 +416,7 @@ export default function App() {
           totalWords={totalWords}
           exportToDocx={() => exportToDocx(currentBook, currentCycle)}
           currentUser={currentUser}
+          setActiveView={setActiveView}
         />
 
         <div className="flex-1 overflow-hidden relative">
@@ -464,6 +424,7 @@ export default function App() {
             <DashboardView 
               cycles={cycles}
               currentCycle={currentCycle}
+              currentBook={currentBook}
               currentUser={currentUser}
               setShowNewCycleModal={setShowNewCycleModal}
               setActiveCycleId={setActiveCycleId}
@@ -554,7 +515,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* MODALS */}
       <CreateCycleModal 
         show={showNewCycleModal}
         setShow={setShowNewCycleModal}
