@@ -1,42 +1,37 @@
 // src/services/aiService.js
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-if (!API_KEY) {
-  console.error("❌ VITE_GEMINI_API_KEY не найден!");
-}
-
 async function callGeminiApi(prompt) {
-  // Определяем тип ключа (OAuth token или API Key)
-  const isOAuthToken = API_KEY && API_KEY.startsWith('AQ.');
-  
-  const url = isOAuthToken 
-    ? 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
-    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  if (!API_KEY) {
+    throw new Error("VITE_GEMINI_API_KEY не установлен в Vercel!");
+  }
+
+  // Используем актуальный v1beta REST API Google Gemini
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
 
   const headers = {
     'Content-Type': 'application/json',
   };
 
-  if (isOAuthToken) {
+  // Если ключ начинается на AQ (новый токен), передаем через Bearer, иначе как API Key
+  if (API_KEY.startsWith('AQ')) {
     headers['Authorization'] = `Bearer ${API_KEY}`;
+  } else {
+    headers['x-goog-api-key'] = API_KEY;
   }
 
   const response = await fetch(url, {
     method: 'POST',
     headers: headers,
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ]
+      contents: [{ parts: [{ text: prompt }] }]
     })
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    console.error("Детали ошибки API:", errorData);
-    throw new Error(errorData.error?.message || `Ошибка API (Статус: ${response.status})`);
+    console.error("Ошибка ИИ:", errorData);
+    throw new Error(errorData.error?.message || `Ошибка сервера: ${response.status}`);
   }
 
   const data = await response.json();
@@ -44,42 +39,30 @@ async function callGeminiApi(prompt) {
 }
 
 export const runAiBetaReader = async (currentScene, currentCycle) => {
-  if (!currentScene?.content) return 'Текст сцены пуст.';
+  if (!currentScene?.content) return 'Текст сцены пуст. Напишите пару абзацев!';
   
-  const prompt = `Проведи детальный анализ литературного отрывка как бета-ридер и стилист.
-        
-Контекст мира: ${currentCycle?.description || ''}
-Персонажи: ${currentCycle?.lore?.characters?.map(c => c.name + ': ' + c.bio).join('; ') || 'Нет'}
-
-Текст сцены:
+  const prompt = `Ты — профессиональный литературный бета-ридер. Проанализируй текст сцены для книги "${currentCycle?.title || ''}".
+Текст:
 "${currentScene.content}"
 
-Структура ответа:
-🟢 **Сильные стороны:**
-🟡 **Ритм и темп сцены:**
-🔴 **Замечания к стилю, повторам и ООС (выходу из характера):**`;
+Дай конструктивный отзыв:
+🟢 Что получилось отлично:
+🟡 Ритм и атмосфера:
+🔴 Что стоит улучшить:`;
 
   return await callGeminiApi(prompt);
 };
 
 export const runCharacterSim = async (simChar1, simChar2, simConflict, currentCycle) => {
-  const prompt = `Смоделируй диалог-столкновение двух персонажей фэнтези.
-Персонаж 1: ${simChar1}
-Персонаж 2: ${simChar2}
-Причина конфликта: ${simConflict}
-Мир: ${currentCycle?.description || ''}
-
-Напиши напряженный диалог с описанием эмоций и жестов, а в конце дай вердикт ИИ о химии персонажей.`;
+  const prompt = `Смоделируй сцену-диалог между двумя персонажами: ${simChar1} и ${simChar2}.
+Причина конфликта/взаимодействия: ${simConflict}.
+Контекст произведения: ${currentCycle?.title || ''}.
+Напиши живой диалог с эмоциями и ремарками.`;
 
   return await callGeminiApi(prompt);
 };
 
 export const runBrainstorm = async (genCategory, currentCycle) => {
-  let prompt = `Сгенерируй 5 креативных идей для фэнтези мира "${currentCycle?.title || ''}". Описание мира: ${currentCycle?.description || ''}. `;
-  
-  if (genCategory === 'names') prompt += 'Предложи 10 атмосферных имён персонажей и названий древних родов с краткой характеристикой.';
-  if (genCategory === 'twists') prompt += 'Предложи 5 неожиданных сюжетных поворотов (Plot Twists) для текущей сюжетной арки.';
-  if (genCategory === 'locations') prompt += 'Предложи 5 уникальных волшебных или мрачных локаций с их секретами.';
-
+  const prompt = `Ты — соавтор книги "${currentCycle?.title || ''}". Предложи 5 креативных идей для категории "${genCategory}".`;
   return await callGeminiApi(prompt);
 };
