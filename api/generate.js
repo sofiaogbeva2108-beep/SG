@@ -1,14 +1,10 @@
 // api/generate.js
 
 export default async function handler(req, res) {
-  // Разрешаем CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -21,29 +17,42 @@ export default async function handler(req, res) {
 
   try {
     const { prompt } = req.body;
-    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'API key is not configured on Vercel server' });
+      return res.status(500).json({ error: 'Ключ API не настроен на сервере Vercel' });
     }
 
     const cleanKey = apiKey.trim();
 
-    // Пробуем запрос к Google API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`,
+    // Передаем актуальное имя модели gemini-2.0-flash
+    let response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cleanKey}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
         }),
       }
     );
 
-    const data = await response.json();
+    let data = await response.json();
+
+    // Если 2.0-flash недоступен, пробуем gemini-2.0-flash-exp
+    if (!response.ok && data.error?.code === 404) {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${cleanKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        }
+      );
+      data = await response.json();
+    }
 
     if (!response.ok) {
       return res.status(response.status).json({ error: data.error?.message || 'Google API Error', details: data });
