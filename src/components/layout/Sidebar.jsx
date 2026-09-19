@@ -1,5 +1,9 @@
+// src/components/layout/Sidebar.jsx
 import React from 'react';
-import { Feather, Flame, Sparkles, Home, BookOpen, Users, Activity, MessageSquare, Lightbulb, Eye } from 'lucide-react';
+import { 
+  Feather, Flame, Sparkles, Home, BookOpen, Users, 
+  Activity, MessageSquare, Lightbulb, Eye, User 
+} from 'lucide-react';
 
 export default function Sidebar({
   focusMode,
@@ -18,7 +22,8 @@ export default function Sidebar({
   if (focusMode) return null;
 
   const navItems = [
-    { id: 'dashboard', label: 'Мои Циклы', icon: Home },
+    { id: 'dashboard', label: 'Главная панель', icon: Home },
+    { id: 'profile', label: 'Личный Кабинет', icon: User }, // <--- НОВЫЙ ПУНКТ
     { id: 'editor', label: 'Кабинет Писателя', icon: BookOpen },
     { id: 'lore', label: 'База Лор & Мир', icon: Users },
     { id: 'analytics', label: 'Рентген & Аналитика', icon: Activity },
@@ -35,9 +40,12 @@ export default function Sidebar({
           <span>Mythos Studio</span>
         </div>
 
-        {/* USER PROFILE */}
+        {/* USER PROFILE CARD */}
         {currentUser ? (
-          <div className="p-3 bg-emerald-900/60 rounded-xl border border-emerald-800 flex items-center justify-between">
+          <div 
+            onClick={() => setActiveView('profile')} 
+            className="p-3 bg-emerald-900/60 hover:bg-emerald-900/90 rounded-xl border border-emerald-800 flex items-center justify-between cursor-pointer transition"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-emerald-100 border border-emerald-500 uppercase">
                 {currentUser.name.slice(0, 2)}
@@ -50,7 +58,10 @@ export default function Sidebar({
                 </div>
               </div>
             </div>
-            <button onClick={handleLogout} className="text-[10px] text-emerald-400 hover:text-white underline ml-2">
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleLogout(); }} 
+              className="text-[10px] text-emerald-400 hover:text-white underline ml-2"
+            >
               Выйти
             </button>
           </div>
@@ -81,9 +92,9 @@ export default function Sidebar({
             onChange={(e) => {
               setActiveCycleId(e.target.value);
               const selectedCyc = cycles.find(c => c.id === e.target.value);
-              if (selectedCyc && selectedCyc.books.length > 0) {
+              if (selectedCyc && selectedCyc.books?.length > 0) {
                 setActiveBookId(selectedCyc.books[0].id);
-                if (selectedCyc.books[0].chapters.length > 0) {
+                if (selectedCyc.books[0].chapters?.length > 0) {
                   setActiveSceneId(selectedCyc.books[0].chapters[0].scenes[0]?.id || '');
                 }
               }
