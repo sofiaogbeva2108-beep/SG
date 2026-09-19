@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StoryHub — Кабинет Писателя</title>
+  
+  <!-- Подключение скомпилированных библиотек React, Babel, Tailwind CSS и Иконок -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-[#FAF9F6] text-slate-800 font-sans antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    function StoryHubApp() {
+      // Состояния приложения
+      const [projects, setProjects] = useState([
+        {
+          id: 'proj-1',
+          seriesTitle: 'Хроники Сумеречного Цвета',
+          isSeries: true,
+          books: [
+            {
+              id: 'book-1',
+              title: 'Книга 1: Наследие',
+              chapters: [
+                {
+                  id: 'chap-1',
+                  title: 'Глава 1: Пробуждение',
+                  scenes: [
+                    { id: 'sc-1', title: 'Сцена 1: Заброшенная башня', content: 'Холодный ветер проникал сквозь узкие бойницы башни...' },
+                    { id: 'sc-2', title: 'Сцена 2: Встреча в тумане', content: 'Туман застилал тропу, делая каждый шаг опасным...' }
+                  ]
+                }
+              ]
+            }
+          ],
+          lore: {
+            characters: [
+              { id: 'c-1', name: 'Каэлан', role: 'Главный герой', bio: 'Хранитель древнего знания, обладатель темной магии.' }
+            ],
+            locations: [
+              { id: 'l-1', name: 'Черная башня', description: 'Старинная цитадель на севере.' }
+            ],
+            rules: [
+              { id: 'r-1', title: 'Закон Магии', detail: 'Использование древних заклинаний требует высокой концентрации.' }
+            ]
+          }
+        }
+      ]);
+
+      const [currentProjId, setCurrentProjId] = useState('proj-1');
+      const [currentBookId, setCurrentBookId] = useState('book-1');
+      const [currentSceneId, setCurrentSceneId] = useState('sc-1');
+      const [activeTab, setActiveTab] = useState('structure'); // structure, lore, timeline, relations
+      const [aiResponse, setAiResponse] = useState('');
+      const [isGenerating, setIsGenerating] = useState(false);
+
+      const currentProject = projects.find(p => p.id === currentProjId) || projects[0];
+      const currentBook = currentProject.books.find(b => b.id === currentBookId) || currentProject.books[0];
+      
+      let activeSceneContent = '';
+      currentBook?.chapters.forEach(ch => {
+        const sc = ch.scenes.find(s => s.id === currentSceneId);
+        if (sc) activeSceneContent = sc.content;
+      });
+
+      const handleContentChange = (newText) => {
+        setProjects(prev => prev.map(proj => {
+          if (proj.id !== currentProjId) return proj;
+          return {
+            ...proj,
+            books: proj.books.map(bk => {
+              if (bk.id !== currentBookId) return bk;
+              return {
+                ...bk,
+                chapters: bk.chapters.map(ch => ({
+                  ...ch,
+                  scenes: ch.scenes.map(sc => sc.id === currentSceneId ? { ...sc, content: newText } : sc)
+                }))
+              };
+            })
+          };
+        }));
+      };
+
+      const wordCount = activeSceneContent.trim() ? activeSceneContent.trim().split(/\s+/).length : 0;
+      const charCount = activeSceneContent.length;
+
+      const runAiAction = (actionName) => {
+        setIsGenerating(true);
+        setAiResponse('Анализирую контекст сцены и правила мира...');
+        setTimeout(() => {
+          setIsGenerating(false);
+          setAiResponse(`ИИ выполнял действие "${actionName}": Контекст персонажей (${currentProject.lore.characters.length}) учтен. Противоречий с каноном не найдено.`);
+        }, 1200);
+      };
+
+      return (
+        <div class="flex h-screen w-full overflow-hidden bg-[#F4F6F0]">
+          {/* Левая панель: Структура и Лор */}
+          <div class="w-80 bg-white/80 backdrop-blur border-r border-emerald-100 flex flex-col justify-between p-4">
+            <div>
+              <div class="flex items-center gap-2 mb-6 text-emerald-800 font-bold text-xl">
+                <span>📚 StoryHub</span>
+              </div>
+
+              {/* Переключатель разделов */}
+              <div class="flex bg-emerald-50/60 rounded-lg p-1 mb-4 border border-emerald-100">
+                <button 
+                  onClick={() => setActiveTab('structure')}
+                  class={`flex-1 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === 'structure' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-700 hover:text-emerald-900'}`}
+                >
+                  Главные сцены
+                </button>
+                <button 
+                  onClick={() => setActiveTab('lore')}
+                  class={`flex-1 py-1.5 text-xs font-semibold rounded-md transition ${activeTab === 'lore' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-700 hover:text-emerald-900'}`}
+                >
+                  Лор и Герои
+                </button>
+              </div>
+
+              {activeTab === 'structure' && (
+                <div class="space-y-4">
+                  <div class="p-3 bg-emerald-50/40 rounded-xl border border-emerald-100/80">
+                    <div class="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Проект / Цикл</div>
+                    <div class="text-sm font-semibold text-slate-800">{currentProject.seriesTitle}</div>
+                    <div class="text-xs text-emerald-600 font-medium">{currentBook.title}</div>
+                  </div>
+
+                  <div class="space-y-2">
+                    {currentBook.chapters.map(ch => (
+                      <div key={ch.id} class="space-y-1">
+                        <div class="text-xs font-bold text-slate-500 px-2">{ch.title}</div>
+                        {ch.scenes.map(sc => (
+                          <button
+                            key={sc.id}
+                            onClick={() => setCurrentSceneId(sc.id)}
+                            class={`w-full text-left px-3 py-2 rounded-lg text-sm transition flex items-center gap-2 ${currentSceneId === sc.id ? 'bg-emerald-100/70 text-emerald-950 font-medium' : 'hover:bg-emerald-50 text-slate-700'}`}
+                          >
+                            <span>📄</span>
+                            <span class="truncate">{sc.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'lore' && (
+                <div class="space-y-4">
+                  <div class="text-xs font-bold text-emerald-800 uppercase tracking-wider">Персонажи цикла</div>
+                  <div class="space-y-2">
+                    {currentProject.lore.characters.map(c => (
+                      <div key={c.id} class="p-2.5 bg-white border border-emerald-100 rounded-lg shadow-sm">
+                        <div class="text-sm font-bold text-slate-800">{c.name}</div>
+                        <div class="text-xs text-emerald-700 font-medium">{c.role}</div>
+                        <div class="text-xs text-slate-500 mt-1">{c.bio}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div class="text-xs text-slate-400 text-center border-t border-emerald-100 pt-3">
+              Русский язык • Общий лор активен
+            </div>
+          </div>
+
+          {/* Центральная панель: Редактор текста */}
+          <div class="flex-1 flex flex-col bg-[#FAF9F6]">
+            {/* Шапка редактора */}
+            <div class="h-14 border-b border-emerald-100/60 px-8 flex items-center justify-between bg-white/50">
+              <div class="flex items-center gap-4 text-xs text-slate-500">
+                <span>Слов: <strong class="text-slate-700">{wordCount}</strong></span>
+                <span>Символов: <strong class="text-slate-700">{charCount}</strong></span>
+              </div>
+              <button 
+                onClick={() => runAiAction('Проверка канона')}
+                class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+              >
+                🔍 Проверить канон с ИИ
+              </button>
+            </div>
+
+            {/* Область ввода */}
+            <div class="flex-1 p-12 overflow-y-auto flex justify-center">
+              <div class="w-full max-w-2xl bg-white p-10 rounded-2xl shadow-sm border border-emerald-100/50 flex flex-col">
+                <textarea
+                  value={activeSceneContent}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  placeholder="Начните писать вашу историю здесь..."
+                  class="w-full h-full resize-none border-none outline-none font-serif text-lg leading-relaxed text-slate-800 placeholder-slate-300 bg-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Правая панель: ИИ-Соавтор */}
+          <div class="w-80 bg-white/80 backdrop-blur border-l border-emerald-100 p-4 flex flex-col justify-between">
+            <div>
+              <div class="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span>✨ ИИ-Соавтор (Gemini)</span>
+              </div>
+
+              <div class="space-y-2 mb-6">
+                <button 
+                  onClick={() => runAiAction('Продолжить сцену')}
+                  class="w-full text-left px-3 py-2 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200/60 rounded-lg text-xs font-medium transition"
+                >
+                  ⚡ Продолжить сцену
+                </button>
+                <button 
+                  onClick={() => runAiAction('Улучшить стиль')}
+                  class="w-full text-left px-3 py-2 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200/60 rounded-lg text-xs font-medium transition"
+                >
+                  🎨 Улучшить стиль и описания
+                </button>
+                <button 
+                  onClick={() => runAiAction('Неожиданный поворот')}
+                  class="w-full text-left px-3 py-2 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-200/60 rounded-lg text-xs font-medium transition"
+                >
+                  🎲 Добавить сюжетный поворот
+                </button>
+              </div>
+
+              {/* Окно ответов ИИ */}
+              <div class="p-3 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-600 leading-relaxed min-h-[120px]">
+                {isGenerating ? (
+                  <div class="animate-pulse text-emerald-700 font-medium">ИИ генерирует ответ с учетом персонажей...</div>
+                ) : (
+                  aiResponse || 'Выберите действие ИИ выше или нажмите «Проверить канон».'
+                )}
+              </div>
+            </div>
+
+            <div class="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100 text-[11px] text-emerald-800">
+              💡 ИИ всегда обращается к Лору и Правилам активного цикла книг.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<StoryHubApp />);
+  </script>
+</body>
+</html>
