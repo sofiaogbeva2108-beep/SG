@@ -1,8 +1,8 @@
 // api/generate.js
-const https = require('https');
 
-module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Credentials', true);
+export default async function handler(req, res) {
+  // Разрешаем CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -23,57 +23,32 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'API key is missing in Vercel settings' });
     }
 
-    const postData = JSON.stringify({
-      model: 'google/gemini-flash-1.5',
-      messages: [{ role: 'user', content: prompt || 'Привет' }],
-    });
-
-    const options = {
-      hostname: 'openrouter.ai',
-      port: 443,
-      path: '/api/v1/chat/completions',
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey.trim()}`,
-        'Content-Length': Buffer.byteLength(postData),
+        'Content-Type': 'application/json',
         'HTTP-Referer': 'https://sg-jet.vercel.app',
         'X-Title': 'Mythos Studio',
       },
-    };
-
-    const request = https.request(options, (response) => {
-      let data = '';
-
-      response.on('data', (chunk) => {
-        data += chunk;
-      });
-
-      response.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (response.statusCode >= 200 && response.statusCode < 300) {
-            const generatedText = parsed.choices?.[0]?.message?.content || 'Пустой ответ.';
-            return res.status(200).json({ text: generatedText });
-          } else {
-            return res.status(response.statusCode).json({
-              error: parsed.error?.message || 'OpenRouter Error',
-              details: parsed,
-            });
-          }
-        } catch (e) {
-          return res.status(500).json({ error: 'Failed to parse OpenRouter response', raw: data });
-        }
-      });
+      body: JSON.stringify({
+        model: 'google/gemini-flash-1.5',
+        messages: [{ role: 'user', content: prompt || 'Привет' }],
+      }),
     });
 
-    request.on('error', (error) => {
-      return res.status(500).json({ error: error.message });
-    });
+    const data = await response.json();
 
-    request.write(postData);
-    request.end();
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error?.message || 'OpenRouter Error',
+        details: data,
+      });
+    }
+
+    const generatedText = data.choices?.[0]?.message?.content || 'Пустой ответ.';
+    return res.status(200).json({ text: generatedText });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'Server Internal Error' });
   }
-};
+}
