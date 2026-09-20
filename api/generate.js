@@ -1,7 +1,7 @@
 // api/generate.js
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -24,11 +24,12 @@ export default async function handler(req, res) {
 
     const cleanKey = apiKey.trim();
 
-    // Перебираем только гарантированно бесплатные модели OpenRouter
+    // 100% бесплатные и активные модели OpenRouter
     const modelsToTry = [
-      'google/gemini-2.0-flash-exp:free',
-      'google/gemini-1.5-flash:free',
-      'meta-llama/llama-3.3-70b-instruct:free'
+      'deepseek/deepseek-r1:free',
+      'google/gemini-2.0-flash-lite-preview-02-05:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'mistralai/mistral-7b-instruct:free'
     ];
 
     let lastError = null;
