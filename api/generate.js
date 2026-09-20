@@ -1,7 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 export default async function handler(req, res) {
-  // Настройка CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -17,24 +14,42 @@ export default async function handler(req, res) {
 
   try {
     const { prompt } = req.body || {};
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'Ключ API GEMINI_API_KEY не найден в Vercel' });
+      return res.status(500).json({ error: 'Ключ GEMINI_API_KEY не найден в Vercel' });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey.trim());
-    
-    // Используем актуальную модель gemini-1.5-flash
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Прямой запрос к Google Gemini API (модель gemini-1.5-flash)
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt || 'Привет' }],
+            },
+          ],
+        }),
+      }
+    );
 
-    const result = await model.generateContent(prompt || 'Привет');
-    const response = await result.response;
-    const responseText = response.text();
+    const data = await response.json();
 
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data.error?.message || 'Ошибка со стороны Google Gemini API',
+      });
+    }
+
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     return res.status(200).json({ text: responseText });
   } catch (error) {
-    console.error('Gemini API Error:', error);
-    return res.status(500).json({ error: error.message || 'Ошибка генерации Gemini API' });
+    console.error('Fetch Error:', error);
+    return res.status(500).json({ error: error.message || 'Ошибка соединения с Gemini' });
   }
 }
