@@ -1,8 +1,10 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -14,41 +16,20 @@ export default async function handler(req, res) {
 
   try {
     const { prompt } = req.body || {};
-    const apiKey = process.env.OPENROUTER_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({ error: 'Ключ API не найден в настройках Vercel' });
     }
 
-    const cleanKey = apiKey.trim();
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // Запрос к гарантированно бесплатной и стабильной модели в OpenRouter
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cleanKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://sg-jet.vercel.app',
-        'X-Title': 'Mythos Studio',
-      },
-      body: JSON.stringify({
-        model: 'deepseek/deepseek-r1:free',
-        messages: [{ role: 'user', content: prompt || 'Привет' }],
-      }),
-    });
+    const result = await model.generateContent(prompt || 'Привет');
+    const responseText = result.response.text();
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: data.error?.message || 'Ошибка OpenRouter',
-        details: data,
-      });
-    }
-
-    const generatedText = data.choices?.[0]?.message?.content || 'Пустой ответ.';
-    return res.status(200).json({ text: generatedText });
+    return res.status(200).json({ text: responseText });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Внутренняя ошибка сервера' });
+    return res.status(500).json({ error: error.message || 'Gemini API Error' });
   }
 }
