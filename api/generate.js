@@ -20,9 +20,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Ключ GEMINI_API_KEY не найден в Vercel' });
     }
 
-    // Прямой запрос к Google Gemini API (модель gemini-1.5-flash)
+    // Запрос к актуальной модели gemini-2.5-flash
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
