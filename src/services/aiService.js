@@ -18,9 +18,29 @@ async function callGeminiApi(prompt) {
   return data.text;
 }
 
+async function callGeminiImageApi(prompt) {
+  const response = await fetch('/api/generate-image', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || `Ошибка сервера: ${response.status}`);
+  }
+
+  // Готовая data-URI строка ("data:image/png;base64,...."), можно сразу
+  // подставлять в src картинки.
+  return data.image;
+}
+
 export const runAiBetaReader = async (currentScene, currentCycle) => {
   if (!currentScene?.content) return 'Текст сцены пуст. Напишите пару абзацев в редакторе!';
-  
+
   const prompt = `Ты — литературный бета-ридер. Проанализируй отрывок для книги "${currentCycle?.title || ''}":
 "${currentScene.content}"
 
@@ -48,4 +68,25 @@ export const runBrainstorm = async (genCategory, currentCycle) => {
   if (genCategory === 'locations') prompt += 'Предложи 5 атмосферных локаций.';
 
   return await callGeminiApi(prompt);
+};
+
+// Генерация портрета персонажа на основе заполненных полей досье.
+// Возвращает data-URI картинки, которую можно сразу сохранить как avatar.
+export const generateCharacterPortrait = async (character, currentCycle) => {
+  const details = [
+    character?.role && `Роль в истории: ${character.role}`,
+    character?.age && `Возраст: ${character.age}`,
+    character?.appearance && `Внешность: ${character.appearance}`,
+    character?.personality && `Характер: ${character.personality}`,
+    character?.magicOrSkills && `Особенности/снаряжение: ${character.magicOrSkills}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const prompt = `Портретная иллюстрация персонажа книги "${currentCycle?.title || ''}" в стиле детализированного digital painting, вертикальная композиция, крупный план лица и плеч, кинематографичное освещение. Без текста и надписей на изображении.
+
+Имя персонажа: ${character?.name || 'без имени'}
+${details || 'Внешность не описана — придумай образ, который подходит роли и характеру персонажа.'}`;
+
+  return await callGeminiImageApi(prompt);
 };
