@@ -24,12 +24,11 @@ export default async function handler(req, res) {
 
     const cleanKey = apiKey.trim();
 
-    // Список рабочих моделей OpenRouter (включая бесплатные :free)
+    // Перебираем только гарантированно бесплатные модели OpenRouter
     const modelsToTry = [
       'google/gemini-2.0-flash-exp:free',
       'google/gemini-1.5-flash:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'qwen/qwen-2.5-72b-instruct:free'
+      'meta-llama/llama-3.3-70b-instruct:free'
     ];
 
     let lastError = null;
