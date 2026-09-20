@@ -1,3 +1,4 @@
+
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 
@@ -77,8 +78,6 @@ export default function App() {
   const [genCategory, setGenCategory] = useState('names');
 
   // LORE INPUTS
-  const [newCharName, setNewCharName] = useState('');
-  const [newCharBio, setNewCharBio] = useState('');
   const [newLocName, setNewLocName] = useState('');
   const [newLocDesc, setNewLocDesc] = useState('');
 
@@ -290,23 +289,39 @@ export default function App() {
   };
 
   // Персонажи и Локации полностью принадлежат текущему Проекту/Циклу
-  const addCharacter = () => {
-    if (!newCharName.trim() || !activeCycleId) return;
+  // Сохраняет полное досье персонажа: создаёт новое (если нет id) или
+  // обновляет существующее по id. Используется страницей персонажа.
+  const updateCharacter = (characterData) => {
+    if (!activeCycleId || !characterData?.name?.trim()) return;
+    setCycles(prev => prev.map(c => {
+      if (c.id !== activeCycleId) return c;
+      const existing = c.lore?.characters || [];
+      const isNew = !characterData.id;
+      const finalData = isNew ? { ...characterData, id: 'c-' + Date.now() } : characterData;
+      return {
+        ...c,
+        lore: {
+          ...c.lore,
+          characters: isNew
+            ? [...existing, finalData]
+            : existing.map(ch => (ch.id === finalData.id ? finalData : ch))
+        }
+      };
+    }));
+  };
+
+  const deleteCharacter = (characterId) => {
+    if (!activeCycleId) return;
     setCycles(prev => prev.map(c => {
       if (c.id !== activeCycleId) return c;
       return {
         ...c,
         lore: {
           ...c.lore,
-          characters: [
-            ...(c.lore?.characters || []), 
-            { id: 'c-' + Date.now(), name: newCharName, role: 'Персонаж', bio: newCharBio }
-          ]
+          characters: (c.lore?.characters || []).filter(ch => ch.id !== characterId)
         }
       };
     }));
-    setNewCharName('');
-    setNewCharBio('');
   };
 
   const addLocation = () => {
@@ -462,11 +477,8 @@ export default function App() {
           {activeView === 'lore' && (
             <LoreView 
               currentCycle={currentCycle}
-              newCharName={newCharName}
-              setNewCharName={setNewCharName}
-              newCharBio={newCharBio}
-              setNewCharBio={setNewCharBio}
-              addCharacter={addCharacter}
+              updateCharacter={updateCharacter}
+              deleteCharacter={deleteCharacter}
               newLocName={newLocName}
               setNewLocName={setNewLocName}
               newLocDesc={newLocDesc}
@@ -536,3 +548,4 @@ export default function App() {
     </div>
   );
 }
+
