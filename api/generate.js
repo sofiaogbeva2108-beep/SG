@@ -29,14 +29,32 @@ export default async function handler(req, res) {
 
     const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
-      contents: prompt,
-    });
+    // Модель Gemini иногда отвечает 503 ("high demand") — это временная
+    // перегрузка на стороне Google, а не ошибка запроса. Делаем до 3
+    // попыток с небольшой паузой перед тем, как показать ошибку пользователю.
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const result = await ai.models.generateContent({
+          model: 'gemini-flash-latest',
+          contents: prompt,
+        });
+        return res.status(200).json({ text: result.text });
+      } catch (error) {
+        lastError = error;
+        const isOverloaded = error?.status === 503 || /503|overloaded|high demand/i.test(error?.message || '');
+        if (!isOverloaded || attempt === 3) break;
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
+      }
+    }
 
-    return res.status(200).json({ text: result.text });
+    throw lastError;
   } catch (error) {
     console.error('Gemini API error:', error);
-    return res.status(500).json({ error: error.message || 'Gemini API Error' });
+    const isOverloaded = error?.status === 503 || /503|overloaded|high demand/i.test(error?.message || '');
+    const message = isOverloaded
+      ? 'Сервис Gemini сейчас перегружен запросами. Попробуйте ещё раз через минуту.'
+      : error.message || 'Gemini API Error';
+    return res.status(isOverloaded ? 503 : 500).json({ error: message });
   }
 }
