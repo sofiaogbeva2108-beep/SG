@@ -8,6 +8,16 @@ export default function BrainstormView({ genCategory, setGenCategory, handleBrai
     { id: 'locations', label: 'Идеи Локаций' }
   ];
 
+  // Для категории "Имена" разбиваем ответ ИИ на чистый список — снимаем
+  // возможную нумерацию/маркеры и пустые строки — и показываем чипами,
+  // а не сплошным абзацем.
+  const nameItems = genCategory === 'names' && aiResponse
+    ? aiResponse
+        .split('\n')
+        .map(line => line.replace(/^[\s\-*•\d.)]+/, '').trim())
+        .filter(Boolean)
+    : null;
+
   return (
     <div className="h-full p-6 overflow-y-auto max-w-3xl mx-auto space-y-6">
       <h1 className="text-xl font-bold text-slate-900">Генератор идей & Брейншторм</h1>
@@ -33,7 +43,25 @@ export default function BrainstormView({ genCategory, setGenCategory, handleBrai
         <span>Сгенерировать идеи</span>
       </button>
 
-      {aiResponse && (
+      {nameItems && nameItems.length > 0 && (
+        <div className="p-5 bg-white rounded-2xl border border-emerald-100">
+          <div className="flex flex-wrap gap-2">
+            {nameItems.map((name, idx) => (
+              <button
+                key={idx}
+                onClick={() => navigator.clipboard.writeText(name)}
+                title="Скопировать"
+                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-full text-xs font-medium text-emerald-900 transition"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-3">Нажмите на имя, чтобы скопировать его.</p>
+        </div>
+      )}
+
+      {aiResponse && genCategory !== 'names' && (
         <div className="p-5 bg-white rounded-2xl border border-emerald-100 text-xs leading-relaxed whitespace-pre-wrap">
           {aiResponse}
         </div>
