@@ -97,7 +97,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
     const rect = containerRef.current.getBoundingClientRect();
     const x = Math.max(20, Math.min(rect.width - 220, e.clientX - dragOffset.current.x));
     const y = Math.max(20, Math.min(rect.height - 120, e.clientY - dragOffset.current.y));
-
     setPositions(prev => ({
       ...prev,
       [draggingNode.current]: { x, y }
@@ -126,7 +125,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
 
   return (
     <div className="h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden select-none">
-      
       {/* Шапка раздела */}
       <div className="p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between z-10">
         <div>
@@ -137,7 +135,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
             Перетаскивайте персонажей и настраивайте отношения между ними.
           </p>
         </div>
-
         <button
           onClick={() => setIsModalOpen(true)}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg transition"
@@ -219,7 +216,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
         {/* Узлы Персонажей */}
         {characters.map(char => {
           const pos = positions[char.id] || { x: 100, y: 100 };
-
           return (
             <div
               key={char.id}
@@ -258,7 +254,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
-
             <form onSubmit={handleAddRelationship} className="space-y-4 text-xs">
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">Первый персонаж</label>
@@ -274,7 +269,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">Второй персонаж</label>
                 <select
@@ -289,7 +283,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">Тип отношений</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -300,7 +293,7 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                       onClick={() => setRelationType(type.id)}
                       className={`p-2 rounded-xl border text-left flex items-center gap-2 transition ${
                         relationType === type.id
-                          ? `${type.bg} ${type.border}${type.text} font-bold`
+                          ? `${type.bg} ${type.border} ${type.text} font-bold`
                           : 'border-slate-800 bg-slate-950 text-slate-400'
                       }`}
                     >
@@ -310,7 +303,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                   ))}
                 </div>
               </div>
-
               <div>
                 <label className="block text-slate-400 mb-1 font-medium">Подпись / Уточнение (необязательно)</label>
                 <input
@@ -321,7 +313,6 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white outline-none focus:border-emerald-500"
                 />
               </div>
-
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -344,3 +335,4 @@ export default function LabView({ currentCycle, setCycles, activeCycleId }) {
     </div>
   );
 }
+
