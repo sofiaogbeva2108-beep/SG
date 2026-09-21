@@ -496,16 +496,10 @@ export default function App() {
           )}
 
           {activeView === 'lab' && (
-            <LabView 
-              simChar1={simChar1}
-              setSimChar1={setSimChar1}
-              simChar2={simChar2}
-              setSimChar2={setSimChar2}
-              simConflict={simConflict}
-              setSimConflict={setSimConflict}
-              handleCharacterSim={handleCharacterSim}
-              aiLoading={aiLoading}
-              aiResponse={aiResponse}
+            <LabView
+              currentCycle={currentCycle}
+              setCycles={setCycles}
+              activeCycleId={activeCycleId}
             />
           )}
 
