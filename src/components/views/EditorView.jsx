@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Plus } from 'lucide-react';
+import AiAssistantPanel from '../editor/AiAssistantPanel';
 
 export default function EditorView({
   currentCycle,
@@ -15,6 +16,37 @@ export default function EditorView({
   activeCycleId,
   updateSceneContent
 }) {
+  const textareaRef = useRef(null);
+  const [selection, setSelection] = useState({ start: 0, end: 0, text: '' });
+
+  // Захватываем выделение текста в textarea, чтобы ИИ-ассистент мог
+  // работать именно с выделенным фрагментом сцены.
+  const captureSelection = () => {
+    const el = textareaRef.current;
+    if (!el) return;
+    setSelection({
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      text: el.value.substring(el.selectionStart, el.selectionEnd),
+    });
+  };
+
+  // Заменить выделенный фрагмент результатом от ИИ
+  const replaceSelection = (newText) => {
+    const content = currentScene?.content || '';
+    const { start, end } = selection;
+    const updated = content.slice(0, start) + newText + content.slice(end);
+    updateSceneContent(updated);
+    setSelection({ start, end: start + newText.length, text: newText });
+  };
+
+  // Добавить текст от ИИ в конец сцены
+  const appendText = (newText) => {
+    const content = currentScene?.content || '';
+    const separator = content && !content.endsWith('\n') ? '\n\n' : '';
+    updateSceneContent(content + separator + newText);
+  };
+
   return (
     <div className="h-full flex">
       {/* CHAPTERS AND SCENES PANEL */}
@@ -95,13 +127,27 @@ export default function EditorView({
             placeholder="Название сцены"
           />
           <textarea
+            ref={textareaRef}
             value={currentScene?.content || ''}
             onChange={(e) => updateSceneContent(e.target.value)}
+            onSelect={captureSelection}
+            onMouseUp={captureSelection}
+            onKeyUp={captureSelection}
             className="w-full flex-1 resize-none border-none outline-none font-serif text-base leading-relaxed text-slate-800"
             placeholder="Пишите сцену..."
           />
         </div>
       </div>
+
+      {/* AI ASSISTANT PANEL */}
+      <AiAssistantPanel
+        selectedText={selection.text}
+        sceneContent={currentScene?.content || ''}
+        currentScene={currentScene}
+        currentCycle={currentCycle}
+        onReplaceSelection={replaceSelection}
+        onAppendText={appendText}
+      />
     </div>
   );
 }
