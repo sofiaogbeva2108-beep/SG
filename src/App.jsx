@@ -1,4 +1,3 @@
-
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 
@@ -278,12 +277,26 @@ export default function App() {
           if (bk.id !== activeBookId) return bk;
           return {
             ...bk,
+            updatedAt: Date.now(),
             chapters: bk.chapters.map(ch => ({
               ...ch,
               scenes: ch.scenes.map(sc => sc.id === activeSceneId ? { ...sc, content: newContent } : sc)
             }))
           };
         })
+      };
+    }));
+  };
+
+  // Сохраняет метаданные "паспорта книги" (Book Hub): обложка, жанр,
+  // аудитория, цель по словам, аннотация, темы, дедлайн и т.д.
+  const updateBookMeta = (updates) => {
+    if (!activeBookId || !activeCycleId) return;
+    setCycles(prev => prev.map(cyc => {
+      if (cyc.id !== activeCycleId) return cyc;
+      return {
+        ...cyc,
+        books: cyc.books.map(bk => bk.id === activeBookId ? { ...bk, ...updates, updatedAt: Date.now() } : bk)
       };
     }));
   };
@@ -470,6 +483,9 @@ export default function App() {
               setCycles={setCycles}
               activeCycleId={activeCycleId}
               updateSceneContent={updateSceneContent}
+              updateBookMeta={updateBookMeta}
+              currentBook={currentBook}
+              setActiveView={setActiveView}
               setShowNewCycleModal={setShowNewCycleModal}
             />
           )}
@@ -542,4 +558,3 @@ export default function App() {
     </div>
   );
 }
-
