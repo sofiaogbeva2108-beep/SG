@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, BookOpen } from 'lucide-react';
 import AiAssistantPanel from '../editor/AiAssistantPanel';
+import BookHub from '../editor/BookHub';
 
 export default function EditorView({
   currentCycle,
@@ -14,10 +15,14 @@ export default function EditorView({
   currentScene,
   setCycles,
   activeCycleId,
-  updateSceneContent
+  updateSceneContent,
+  updateBookMeta,
+  currentBook,
+  setActiveView
 }) {
   const textareaRef = useRef(null);
   const [selection, setSelection] = useState({ start: 0, end: 0, text: '' });
+  const [showHub, setShowHub] = useState(false);
 
   // Захватываем выделение текста в textarea, чтобы ИИ-ассистент мог
   // работать именно с выделенным фрагментом сцены.
@@ -49,6 +54,16 @@ export default function EditorView({
 
   return (
     <div className="h-full flex">
+      {showHub ? (
+        <BookHub
+          book={currentBook}
+          currentCycle={currentCycle}
+          onUpdateBookMeta={updateBookMeta}
+          onContinue={() => setShowHub(false)}
+          onOpenLore={() => setActiveView('lore')}
+        />
+      ) : (
+        <>
       {/* CHAPTERS AND SCENES PANEL */}
       <div className="w-64 border-r border-emerald-100 bg-white p-4 overflow-y-auto hidden md:block shrink-0">
         <div className="mb-4 pb-3 border-b border-emerald-100">
@@ -68,6 +83,12 @@ export default function EditorView({
               <option key={b.id} value={b.id}>{b.title}</option>
             ))}
           </select>
+          <button
+            onClick={() => setShowHub(true)}
+            className="w-full py-1 mb-1.5 bg-white text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex justify-center items-center gap-1 hover:bg-emerald-50"
+          >
+            <BookOpen className="w-3.5 h-3.5" /> Паспорт книги
+          </button>
           <button 
             onClick={() => setShowNewBookModal(true)}
             className="w-full py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex justify-center items-center gap-1 hover:bg-emerald-100"
@@ -148,6 +169,8 @@ export default function EditorView({
         onReplaceSelection={replaceSelection}
         onAppendText={appendText}
       />
+      </>
+      )}
     </div>
   );
 }
